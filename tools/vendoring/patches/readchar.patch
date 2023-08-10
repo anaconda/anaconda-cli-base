@@ -1,0 +1,53 @@
+Subject: [PATCH] Typing fixes
+---
+Index: libs/anaconda-cli-base/src/anaconda_cli_base/_vendor/readchar/_config.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/libs/anaconda-cli-base/src/anaconda_cli_base/_vendor/readchar/_config.py b/libs/anaconda-cli-base/src/anaconda_cli_base/_vendor/readchar/_config.py
+--- a/libs/anaconda-cli-base/src/anaconda_cli_base/_vendor/readchar/_config.py	(revision 6ad400280ea92633b986502713b787954165052e)
++++ b/libs/anaconda-cli-base/src/anaconda_cli_base/_vendor/readchar/_config.py	(date 1688144387535)
+@@ -7,7 +7,7 @@
+     """Static class that containes Constants used throughout the libary.
+     You can directly use the class-attributes, do not create instances of it!"""
+
+-    def __new__(cls):
++    def __new__(cls) -> "config":
+         raise SyntaxError("you can't create instances of this class")
+
+     INTERRUPT_KEYS: List[str] = [key.CTRL_C]
+Index: libs/anaconda-cli-base/src/anaconda_cli_base/_vendor/readchar/__init__.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/libs/anaconda-cli-base/src/anaconda_cli_base/_vendor/readchar/__init__.py b/libs/anaconda-cli-base/src/anaconda_cli_base/_vendor/readchar/__init__.py
+--- a/libs/anaconda-cli-base/src/anaconda_cli_base/_vendor/readchar/__init__.py	(revision 6ad400280ea92633b986502713b787954165052e)
++++ b/libs/anaconda-cli-base/src/anaconda_cli_base/_vendor/readchar/__init__.py	(date 1688144387535)
+@@ -12,7 +12,7 @@
+     from . import _posix_key as key
+     from ._posix_read import readchar, readkey
+ elif platform in ("win32", "cygwin"):
+-    from . import _win_key as key
++    from . import _win_key as key  # type: ignore
+     from ._win_read import readchar, readkey
+ else:
+     raise NotImplementedError(f"The platform {platform} is not supported yet")
+Index: libs/anaconda-cli-base/src/anaconda_cli_base/_vendor/readchar/_win_read.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/libs/anaconda-cli-base/src/anaconda_cli_base/_vendor/readchar/_win_read.py b/libs/anaconda-cli-base/src/anaconda_cli_base/_vendor/readchar/_win_read.py
+--- a/libs/anaconda-cli-base/src/anaconda_cli_base/_vendor/readchar/_win_read.py	(revision 6ad400280ea92633b986502713b787954165052e)
++++ b/libs/anaconda-cli-base/src/anaconda_cli_base/_vendor/readchar/_win_read.py	(date 1688144387535)
+@@ -8,7 +8,7 @@
+     Blocks until a character is available."""
+
+     # manual byte decoding because some bytes in windows are not utf-8 encodable.
+-    return chr(int.from_bytes(msvcrt.getch(), "big"))
++    return chr(int.from_bytes(msvcrt.getch(), "big"))  # type: ignore
+
+
+ def readkey() -> str:

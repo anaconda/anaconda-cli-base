@@ -1,0 +1,126 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling", "hatch-vcs>=0.3", "setuptools-scm>=7.1"]
+
+[project]
+dependencies = [
+  "rich",
+  "typer"
+]
+description = "A base CLI entrypoint supporting Anaconda CLI plugins"
+dynamic = ["version"]
+license = {text = "BSD-3-Clause"}
+name = "anaconda-cli-base"
+readme = "README.md"
+requires-python = ">=3.8"
+
+[project.entry-points."anaconda_cli.main"]
+anaconda = "anaconda_cli_base.cli:app"
+
+[project.optional-dependencies]
+dev = [
+  "mypy",
+  "pytest",
+  "pytest-mock",
+  "tox",
+  "types-requests"
+]
+publish = [
+  "build",
+  "twine",
+  "wheel"
+]
+
+[tool.distutils.bdist_wheel]
+universal = true
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/anaconda_cli_base/_version.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src/anaconda_cli_base",
+  "/pyproject.toml",
+  "/tests",
+  "/Makefile",
+  "/environment-dev.yml"
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+git_describe_command = "git describe --dirty --tags --long --match 'anaconda-cli-base-*'"
+root = "../.."
+
+[tool.isort]
+force_single_line = true
+profile = "black"
+
+[tool.mypy]
+disallow_untyped_defs = true
+files = [
+  "src/**/*.py",
+  "tests/**/*.py"
+]
+python_version = "3.8"
+
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+module = "rich_click.*"
+
+[tool.pytest.ini_options]
+markers = [
+  "integration: Integration tests requiring a browser"
+]
+norecursedirs = ["env", "envs", ".tox"]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py38,py39,py310,py311,mypy
+isolated_build = True
+
+[gh-actions]
+python =
+    3.8: py38, mypy
+    3.9: py39, mypy
+    3.10: py310, mypy
+    3.11: py311
+
+[testenv]
+deps =
+    mypy
+    pytest
+    pytest-mock
+conda_deps =
+    anaconda-client >=1.12.0
+conda_channels =
+    anaconda-cloud
+    defaults
+    conda-forge
+commands = pytest -m "not integration"
+
+[testenv:mypy]
+deps =
+    mypy
+    pytest
+    pytest-mock
+    types-requests
+    typer
+    rich
+commands = mypy
+"""
+
+[tool.vendoring]
+destination = "src/anaconda_cli_base/_vendor/"
+namespace = "anaconda_cli_base._vendor"
+patches-dir = "tools/vendoring/patches"
+protected-files = ["__init__.py", "requirements.txt"]
+requirements = "src/anaconda_cli_base/_vendor/requirements.txt"
+
+[tool.vendoring.license.directories]
+setuptools = "pkg_resources"
+
+[tool.vendoring.license.fallback-urls]
+readchar = "https://raw.githubusercontent.com/magmax/python-readchar/master/LICENCE"
