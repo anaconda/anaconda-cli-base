@@ -1,12 +1,11 @@
 from typing import List
 
+from readchar import key
+from readchar import readkey
 from rich.console import Console
 from rich.live import Live
 from rich.style import Style
 from rich.table import Table
-
-from anaconda_cli_base._vendor.readchar import key
-from anaconda_cli_base._vendor.readchar import readkey
 
 __all__ = ["console", "select_from_list"]
 
