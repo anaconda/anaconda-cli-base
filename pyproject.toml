@@ -22,6 +22,7 @@ anaconda = "anaconda_cli_base.cli:app"
 dev = [
   "mypy",
   "pytest",
+  "pytest-cov",
   "pytest-mock",
   "tox",
   "types-requests"
@@ -75,6 +76,18 @@ ignore_missing_imports = true
 module = "rich_click.*"
 
 [tool.pytest.ini_options]
+addopts = [
+  "--cov=anaconda_cli_base",
+  "--color=yes",
+  "--cov-append",
+  "--cov-branch",
+  "--cov-report=html",
+  "--cov-report=html:./cov_html",
+  "--cov-report=term-missing",
+  "--cov-report=xml",
+  "--durations=5",
+  "-vv"
+]
 markers = [
   "integration: Integration tests requiring a browser"
 ]
@@ -97,6 +110,7 @@ python =
 deps =
     mypy
     pytest
+    pytest-cov
     pytest-mock
 conda_deps =
     anaconda-client >=1.12.0
@@ -110,6 +124,7 @@ commands = pytest -m "not integration"
 deps =
     mypy
     pytest
+    pytest-cov
     pytest-mock
     types-requests
     typer
