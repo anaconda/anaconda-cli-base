@@ -15,6 +15,8 @@ name = "anaconda-cli-base"
 readme = "README.md"
 requires-python = ">=3.8"
 
+# If anaconda-client is installed last, which defines the script entrypoint "anaconda"
+# this plugin is used to redirect the user back to anaconda-cli-base app.
 [project.entry-points."anaconda_cli.main"]
 anaconda = "anaconda_cli_base.cli:app"
 
@@ -32,6 +34,11 @@ publish = [
   "twine",
   "wheel"
 ]
+
+# If anaconda-client is not installed, or installed before anaconda-cli-base,
+# Then we directly define the "anaconda" entrypoint.
+[project.scripts]
+anaconda = "anaconda_cli_base.cli:app"
 
 [tool.distutils.bdist_wheel]
 universal = true
