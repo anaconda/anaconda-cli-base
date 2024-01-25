@@ -11,7 +11,7 @@ __all__ = ["console", "select_from_list"]
 
 SELECTED = Style(color="green", bold=True)
 
-console = Console()
+console = Console(soft_wrap=True)
 
 
 def _generate_table(header: str, rows: List[str], selected: int) -> Table:
