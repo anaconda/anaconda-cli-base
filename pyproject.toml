@@ -35,11 +35,6 @@ publish = [
   "wheel"
 ]
 
-# If anaconda-client is not installed, or installed before anaconda-cli-base,
-# Then we directly define the "anaconda" entrypoint.
-[project.scripts]
-anaconda = "anaconda_cli_base.cli:app"
-
 [tool.distutils.bdist_wheel]
 universal = true
 
