@@ -15,7 +15,7 @@ load_registered_subcommands(app)
 def main(
     version: Optional[bool] = typer.Option(
         None, "--version", help="Show version and exit."
-    )
+    ),
 ) -> None:
     """Anaconda CLI."""
     if version:
