@@ -13,7 +13,7 @@ dynamic = ["version"]
 license = {text = "BSD-3-Clause"}
 name = "anaconda-cli-base"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.8,<3.12"
 
 # If anaconda-client is installed last, which defines the script entrypoint "anaconda"
 # this plugin is used to redirect the user back to anaconda-cli-base app.
@@ -111,7 +111,7 @@ deps =
     pytest-cov
     pytest-mock
 conda_deps =
-    anaconda-client >=1.12.0
+    anaconda-client >=1.12.2
 conda_channels =
     anaconda-cloud
     defaults

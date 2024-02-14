@@ -30,9 +30,12 @@ requirements:
     {% endfor %}
 
 test:
+  requires:
+    - anaconda-client >= 1.12.2
   imports:
     - anaconda_cli_base
   commands:
+    - anaconda --version
     - python -c "from anaconda_cli_base import __version__; assert __version__ == \"{{ version }}\""
 about:
   summary: {{ project['description'] }}
