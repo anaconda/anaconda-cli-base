@@ -110,6 +110,7 @@ deps =
     pytest
     pytest-cov
     pytest-mock
+    typer !=0.12.2
 conda_deps =
     anaconda-client >=1.12.2
 conda_channels =
