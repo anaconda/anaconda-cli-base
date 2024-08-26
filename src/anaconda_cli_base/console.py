@@ -1,9 +1,12 @@
+import logging
+import os
 from typing import List
 
 from readchar import key
 from readchar import readkey
 from rich.console import Console
 from rich.live import Live
+from rich.logging import RichHandler
 from rich.style import Style
 from rich.table import Table
 
@@ -12,6 +15,13 @@ __all__ = ["console", "select_from_list"]
 SELECTED = Style(color="green", bold=True)
 
 console = Console(soft_wrap=True)
+
+logging.basicConfig(
+    level=os.getenv("LOGLEVEL", "INFO").upper(),
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler()],
+)
 
 
 def _generate_table(header: str, rows: List[str], selected: int) -> Table:
