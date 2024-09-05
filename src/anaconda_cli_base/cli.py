@@ -1,6 +1,9 @@
 import functools
 import logging
 import os
+from dataclasses import dataclass
+from dataclasses import field
+from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import Optional
@@ -17,6 +20,17 @@ from anaconda_cli_base.plugins import load_registered_subcommands
 app = typer.Typer(add_completion=False, help="Welcome to the Anaconda CLI!")
 
 log = logging.getLogger(__name__)
+
+
+@dataclass()
+class ContextExtras:
+    """Encapsulates extra information we want to add to the `typer.Context`.
+
+    Used to pass down args from parent CLI to nested subcommands.
+
+    """
+
+    params: Dict[str, Any] = field(default_factory=dict)
 
 
 @app.callback(invoke_without_command=True, no_args_is_help=True)
@@ -71,6 +85,11 @@ def main(
     ),
 ) -> None:
     """Anaconda CLI."""
+    ctx.obj = ContextExtras()
+
+    # Store all the top-level params on the obj attribute
+    ctx.obj.params.update(ctx.params.copy())
+
     if show_help:
         console.print(ctx.get_help())
         raise typer.Exit()
@@ -96,7 +115,7 @@ def _load_auth_handlers(auth_handlers: Dict[str, typer.Typer]) -> None:
         handler = auth_handlers[at]
 
         args = ("--help",) if help else ctx.args
-        return handler(args=[ctx.command.name, *args])
+        return handler(args=[ctx.command.name, *args], obj=ctx.obj)
 
     for action in "login", "logout", "whoami":
         decorator = app.command(

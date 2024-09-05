@@ -189,6 +189,10 @@ def org_plugin() -> ENTRY_POINT_TUPLE:
     def action() -> None:
         print("org: done")
 
+    @plugin.command("token")
+    def token(ctx: typer.Context) -> None:
+        print(f"token: {ctx.obj.params.get('token')}")
+
     @plugin.command("login")
     def login(force: bool = typer.Option(False, "--force")) -> None:
         print("org: You're in")
@@ -346,3 +350,32 @@ def test_org_subcommand(
     result = invoke_cli(["org", "action"])
     assert result.exit_code == 0
     assert "org: done\n" == result.stdout
+
+
+def test_capture_top_level_params(
+    invoke_cli: CLIInvoker,
+    org_plugin: ENTRY_POINT_TUPLE,
+    mocker: MockerFixture,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    # Test that subcommand captures the top-level CLI params via the typer.Context.obj.params attribute.
+
+    # these env vars should not be set in a normal env for this test
+    monkeypatch.delenv("ANACONDA_CLI_FORCE_NEW", raising=False)
+    monkeypatch.delenv("ANACONDA_CLIENT_FORCE_STANDALONE", raising=False)
+
+    plugins = [org_plugin]
+    mocker.patch(
+        "anaconda_cli_base.plugins._load_entry_points_for_group", return_value=plugins
+    )
+    load_registered_subcommands(cast(typer.Typer, anaconda_cli_base.cli.app))
+    groups = [g.name for g in anaconda_cli_base.cli.app.registered_groups]
+    assert "org" in groups
+
+    final_app = _select_main_entrypoint_app(anaconda_cli_base.cli.app)
+
+    assert final_app is anaconda_cli_base.cli.app
+
+    result = invoke_cli(["--token", "TOKEN", "org", "token"])
+    assert result.exit_code == 0
+    assert "token: TOKEN\n" == result.stdout
