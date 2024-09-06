@@ -9,12 +9,11 @@ from typing import Dict
 from typing import Optional
 from typing import Union
 
-import click
 import typer
-from typing_extensions import Annotated
 
 from anaconda_cli_base import __version__
 from anaconda_cli_base import console
+from anaconda_cli_base.console import select_from_list
 from anaconda_cli_base.plugins import load_registered_subcommands
 
 app = typer.Typer(add_completion=False, help="Welcome to the Anaconda CLI!")
@@ -103,13 +102,28 @@ def main(
 
 
 def _load_auth_handlers(auth_handlers: Dict[str, typer.Typer]) -> None:
-    at_choices = click.Choice(list(auth_handlers))
+    def validate_at(ctx: typer.Context, _: Any, choice: str) -> str:
+        show_help = ctx.params.get("help", False) is True
+        if show_help:
+            help_str = ctx.get_help()
+            console.print(help_str)
+            raise typer.Exit()
+
+        if choice is None:
+            choice = select_from_list("choose destination:", list(auth_handlers))
+
+        elif choice not in auth_handlers:
+            print(
+                f"{choice} is not an allowed value for --at. Use one of {list(auth_handlers)}"
+            )
+            raise typer.Abort()
+        return choice
 
     def _action(
         ctx: typer.Context,
-        at: Annotated[
-            str, typer.Option(click_type=at_choices, prompt="at", show_choices=True)
-        ],
+        at: str = typer.Option(
+            None, callback=validate_at, help=f"Choose from {list(auth_handlers)}"
+        ),
         help: bool = typer.Option(False, "--help"),
     ) -> None:
         handler = auth_handlers[at]

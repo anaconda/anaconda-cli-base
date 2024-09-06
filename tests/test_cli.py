@@ -9,8 +9,9 @@ from unittest.mock import MagicMock
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
 
-from anaconda_cli_base import __version__
 import anaconda_cli_base.cli
+from anaconda_cli_base import __version__
+from anaconda_cli_base import console
 from anaconda_cli_base.cli import _select_main_entrypoint_app
 from anaconda_cli_base.plugins import load_registered_subcommands
 
@@ -109,19 +110,19 @@ def cloud_plugin() -> ENTRY_POINT_TUPLE:
 
     @plugin.command("action")
     def action() -> None:
-        print("cloud: done")
+        console.print("cloud: done")
 
     @plugin.command("login")
     def login(force: bool = typer.Option(False, "--force")) -> None:
-        print("cloud: You're in")
+        console.print("cloud: You're in")
 
     @plugin.command("logout")
     def logout() -> None:
-        print("cloud: You're out")
+        console.print("cloud: You're out")
 
     @plugin.command("whoami")
     def whoami() -> None:
-        print("cloud: Who are you?")
+        console.print("cloud: Who are you?")
 
     return ("cloud", "auth-plugin:app", plugin)
 
@@ -160,17 +161,14 @@ def test_load_cloud_plugin(
             None,
         )
         assert cmd is not None
-        assert cmd.callback.__annotations__["at"].__metadata__[
-            0
-        ].click_type.choices == ["cloud"]
 
     result = invoke_cli(["cloud", "action"])
     assert result.exit_code == 0
     assert result.stdout == "cloud: done\n"
 
-    result = invoke_cli(["login"], input="cloud")
+    result = invoke_cli(["login"], input="\n")
     assert result.exit_code == 0
-    assert result.stdout.strip().splitlines()[-1] == "cloud: You're in"
+    assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
 
     result = invoke_cli(["login", "--at", "cloud"])
     assert result.exit_code == 0
@@ -187,7 +185,7 @@ def org_plugin() -> ENTRY_POINT_TUPLE:
 
     @plugin.command("action")
     def action() -> None:
-        print("org: done")
+        console.print("org: done")
 
     @plugin.command("token")
     def token(ctx: typer.Context) -> None:
@@ -195,15 +193,15 @@ def org_plugin() -> ENTRY_POINT_TUPLE:
 
     @plugin.command("login")
     def login(force: bool = typer.Option(False, "--force")) -> None:
-        print("org: You're in")
+        console.print("org: You're in")
 
     @plugin.command("logout")
     def logout() -> None:
-        print("org: You're out")
+        console.print("org: You're out")
 
     @plugin.command("whoami")
     def whoami() -> None:
-        print("org: Who are you?")
+        console.print("org: Who are you?")
 
     return ("org", "org-plugin:app", plugin)
 
@@ -259,7 +257,6 @@ def test_org_legacy(
 
 def test_fail_org_legacy(
     org_plugin: ENTRY_POINT_TUPLE,
-    legacy_main: Callable,
     mocker: MockerFixture,
     monkeypatch: MonkeyPatch,
 ) -> None:
@@ -344,12 +341,57 @@ def test_org_subcommand(
             None,
         )
         assert cmd is not None
-        choices = cmd.callback.__annotations__["at"].__metadata__[0].click_type.choices
-        assert sorted(choices) == ["cloud", "org"]
 
     result = invoke_cli(["org", "action"])
     assert result.exit_code == 0
     assert "org: done\n" == result.stdout
+
+
+def test_login_select(
+    invoke_cli: CLIInvoker,
+    org_plugin: ENTRY_POINT_TUPLE,
+    cloud_plugin: ENTRY_POINT_TUPLE,
+    mocker: MockerFixture,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Multiple plugins installed, default behavior"""
+
+    # these env vars should not be set in a normal env for this test
+    monkeypatch.delenv("ANACONDA_CLI_FORCE_NEW", raising=False)
+    monkeypatch.delenv("ANACONDA_CLIENT_FORCE_STANDALONE", raising=False)
+
+    plugins = [org_plugin, cloud_plugin]
+    mocker.patch(
+        "anaconda_cli_base.plugins._load_entry_points_for_group", return_value=plugins
+    )
+    load_registered_subcommands(cast(typer.Typer, anaconda_cli_base.cli.app))
+
+    result = invoke_cli(["login"], input="\n")
+    assert result.exit_code == 0
+    assert result.stdout.strip().splitlines()[-1].endswith("org: You're in")
+
+    result = invoke_cli(["login"], input="j\n")
+    assert result.exit_code == 0
+    assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
+
+    result = invoke_cli(["login"], input="jk\n")
+    assert result.exit_code == 0
+    assert result.stdout.strip().splitlines()[-1].endswith("org: You're in")
+
+    # These cannot be tested because key.UP and key.DOWN send multiple characters
+    # through to click.getchar, but that does not happen interactively.
+
+    # result = invoke_cli(["login"], input=key.ENTER)
+    # assert result.exit_code == 0
+    # assert result.stdout.strip().splitlines()[-1].endswith("org: You're in")
+
+    # result = invoke_cli(["login"], input=key.DOWN+key.ENTER)
+    # assert result.exit_code == 0
+    # assert result.stdout.strip().splitlines()[-1].endswith("org: You're in")
+
+    # result = invoke_cli(["login"], input=key.UP+key.ENTER)
+    # assert result.exit_code == 0
+    # assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
 
 
 def test_capture_top_level_params(
