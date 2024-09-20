@@ -1,5 +1,6 @@
 from functools import partial
 from typing import Tuple
+from typing import Type
 from typing import cast
 from typing import Optional, Sequence, Callable, Generator
 
@@ -13,6 +14,7 @@ import anaconda_cli_base.cli
 from anaconda_cli_base import __version__
 from anaconda_cli_base import console
 from anaconda_cli_base.cli import _select_main_entrypoint_app
+from anaconda_cli_base.exceptions import register_error_handler
 from anaconda_cli_base.plugins import load_registered_subcommands
 
 from .conftest import CLIInvoker
@@ -421,3 +423,106 @@ def test_capture_top_level_params(
     result = invoke_cli(["--token", "TOKEN", "org", "token"])
     assert result.exit_code == 0
     assert "token: TOKEN\n" == result.stdout
+
+
+@pytest.fixture
+def error_plugin() -> ENTRY_POINT_TUPLE:
+    plugin = typer.Typer(name="error", add_completion=False, no_args_is_help=True)
+
+    class MyException(Exception):
+        pass
+
+    @register_error_handler(MyException)
+    def handle_exception(e: Type[Exception]) -> int:
+        print(f"Custom error handler: {e.__class__.__name__}")
+        return 42
+
+    class AnotherException(Exception):
+        pass
+
+    @register_error_handler(AnotherException)
+    def handle_and_continue(e: Type[Exception]) -> int:
+        print(f"I've corrected the problem: {e.__class__.__name__}")
+        return -1
+
+    @plugin.command("auto-catch")
+    def auth_catch() -> None:
+        _ = 1 / 0
+
+    @plugin.command("custom-catch")
+    def custom_catch() -> None:
+        raise MyException("something bad happened")
+
+    class Counter:
+        def __init__(self) -> None:
+            self.count = 0
+
+        def __call__(self) -> None:
+            print("calling counter")
+            self.count += 1
+            if self.count < 2:
+                raise AnotherException("Call me again")
+
+    counter1 = Counter()
+    counter2 = Counter()
+
+    @plugin.command("continue-task")
+    def continue_task() -> None:
+        counter1()
+
+    @plugin.command("continue-task-but-fail")
+    def continue_task_but_fail() -> None:
+        counter2()
+        raise RuntimeError("something went wrong")
+
+    return ("error", "error-plugin:app", plugin)
+
+
+def test_error_handled(
+    invoke_cli: CLIInvoker,
+    error_plugin: ENTRY_POINT_TUPLE,
+    mocker: MockerFixture,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    # Test that subcommand captures the top-level CLI params via the typer.Context.obj.params attribute.
+
+    # these env vars should not be set in a normal env for this test
+    monkeypatch.delenv("ANACONDA_CLI_FORCE_NEW", raising=False)
+    monkeypatch.delenv("ANACONDA_CLIENT_FORCE_STANDALONE", raising=False)
+
+    plugins = [error_plugin]
+    mocker.patch(
+        "anaconda_cli_base.plugins._load_entry_points_for_group", return_value=plugins
+    )
+    load_registered_subcommands(cast(typer.Typer, anaconda_cli_base.cli.app))
+
+    result = invoke_cli(["error", "auto-catch"])
+    assert result.exit_code == 1
+    assert result.stdout.splitlines()[0] == "ZeroDivisionError: division by zero"
+
+    result = invoke_cli(["--verbose", "error", "auto-catch"])
+    assert result.exit_code == 1
+    assert isinstance(result.exception, ZeroDivisionError)
+
+    result = invoke_cli(["error", "custom-catch"])
+    assert result.exit_code == 42
+    assert result.stdout.splitlines()[0] == "Custom error handler: MyException"
+
+    result = invoke_cli(["error", "continue-task"])
+    assert result.exit_code == 0
+    output = result.stdout.splitlines()
+    assert output[:3] == [
+        "calling counter",
+        "I've corrected the problem: AnotherException",
+        "calling counter",
+    ]
+
+    result = invoke_cli(["error", "continue-task-but-fail"])
+    assert result.exit_code == 1
+    output = result.stdout.splitlines()
+    assert output[:4] == [
+        "calling counter",
+        "I've corrected the problem: AnotherException",
+        "calling counter",
+        "RuntimeError: something went wrong",
+    ]

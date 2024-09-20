@@ -1,6 +1,7 @@
 import functools
 import logging
 import os
+import sys
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
@@ -8,15 +9,101 @@ from typing import Callable
 from typing import Dict
 from typing import Optional
 from typing import Union
+from typing import Sequence
+from typing import List
 
 import typer
+import click.core
+import click.utils
+from typer.core import TyperGroup
 
 from anaconda_cli_base import __version__
 from anaconda_cli_base import console
 from anaconda_cli_base.console import select_from_list
 from anaconda_cli_base.plugins import load_registered_subcommands
+from anaconda_cli_base.exceptions import ERROR_HANDLERS
 
-app = typer.Typer(add_completion=False, help="Welcome to the Anaconda CLI!")
+
+class ErrorHandledGroup(TyperGroup):
+    def list_commands(self, _: click.core.Context) -> List[str]:
+        """Return list of commands in the order they appear on the CLI."""
+        return sorted(self.commands, reverse=False)
+
+    def main(  # type: ignore
+        self,
+        args: Optional[Sequence[str]] = None,
+        prog_name: Optional[str] = None,
+        complete_var: Optional[str] = None,
+        standalone_mode: bool = True,
+        windows_expand_args: bool = True,
+        **extra: Any,
+    ) -> None:
+        try:
+            super().main(
+                args,
+                prog_name,
+                complete_var,
+                standalone_mode,
+                windows_expand_args,
+                **extra,
+            )
+        except Exception as e:
+            ctx = self._get_context(args, prog_name, windows_expand_args, **extra)
+            if ctx.params.get("verbose", False):
+                raise e
+
+            callback = ERROR_HANDLERS[type(e)]
+            exit_code = callback(e)
+            if exit_code == -1:
+                self.main(
+                    args,
+                    prog_name,
+                    complete_var,
+                    standalone_mode,
+                    windows_expand_args,
+                    **extra,
+                )
+            else:
+                cmd = " ".join([*ctx.protected_args, *ctx.args])
+                console.print(
+                    f"\nTo see a more detailed error message run the command again as"
+                    f"\n  [green]anaconda --verbose {cmd}[/green]"
+                )
+                sys.exit(exit_code)
+
+    def _get_context(
+        self,
+        args: Optional[Sequence[str]] = None,
+        prog_name: Optional[str] = None,
+        windows_expand_args: bool = True,
+        **extra: Any,
+    ) -> click.core.Context:
+        # This function adapted from typer.TyperGroup._main
+        # We need the context to determine if --verbose was requested
+        # from the root command.
+        if not args:
+            args = sys.argv[1:]
+
+            # Covered in Click tests
+            if os.name == "nt" and windows_expand_args:  # pragma: no cover
+                args = click.utils._expand_args(args)
+        else:
+            args = list(args)
+
+        if prog_name is None:
+            prog_name = click.utils._detect_program_name()
+
+        ctx = self.make_context(prog_name, args, **extra)
+        return ctx
+
+
+app = typer.Typer(
+    cls=ErrorHandledGroup,
+    add_completion=False,
+    help="Welcome to the Anaconda CLI!",
+    pretty_exceptions_enable=True,
+)
+
 
 log = logging.getLogger(__name__)
 
@@ -64,7 +151,7 @@ def main(
         "-v",
         "--verbose",
         help="print debug information on the console",
-        hidden=True,
+        hidden=False,
     ),
     quiet: Optional[bool] = typer.Option(
         False,
@@ -131,10 +218,18 @@ def _load_auth_handlers(auth_handlers: Dict[str, typer.Typer]) -> None:
         args = ("--help",) if help else ctx.args
         return handler(args=[ctx.command.name, *args], obj=ctx.obj)
 
+    help_doc = {
+        "login": "Sign into Anaconda services",
+        "logout": "Sign out from Anaconda services",
+        "whoami": "Display account information",
+    }
+
     for action in "login", "logout", "whoami":
         decorator = app.command(
             action,
             context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+            rich_help_panel="Authentication",
+            help=help_doc[action],
         )
         decorator(_action)
 

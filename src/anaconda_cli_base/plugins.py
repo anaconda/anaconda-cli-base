@@ -45,7 +45,7 @@ def load_registered_subcommands(app: Typer) -> None:
         if "login" in [cmd.name for cmd in subcommand_app.registered_commands]:
             auth_handlers[name] = subcommand_app
 
-        app.add_typer(subcommand_app, name=name)
+        app.add_typer(subcommand_app, name=name, rich_help_panel="Plugins")
 
     if auth_handlers:
         app._load_auth_handlers(auth_handlers)  # type: ignore
