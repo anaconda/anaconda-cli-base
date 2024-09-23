@@ -17,8 +17,9 @@ from typing import Generator
 import pytest
 import typer
 from pytest import MonkeyPatch
+from pytest_mock import MockerFixture
 from typer.testing import CliRunner
-from typer.testing import Result
+from click.testing import Result
 
 # Force usage of new CLI
 os.environ["ANACONDA_CLI_FORCE_NEW"] = "true"
@@ -38,6 +39,18 @@ class CLIInvoker(Protocol):
         color: bool = False,
         **extra: Any,
     ) -> Result: ...
+
+
+@pytest.fixture
+def disable_dot_env(mocker: MockerFixture) -> None:
+    from anaconda_cli_base.config import AnacondaBaseSettings
+
+    mocker.patch.dict(AnacondaBaseSettings.model_config, {"env_file": ""})
+
+
+@pytest.fixture(autouse=True)
+def disable_config_toml(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(tmp_path / "empty-config.toml"))
 
 
 @pytest.fixture()

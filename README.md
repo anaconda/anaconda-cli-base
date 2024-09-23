@@ -64,6 +64,63 @@ before attempting the CLI subcommand again.
 
 See the [anaconda-cloud-auth](https://github.com/anaconda/anaconda-cloud-tools/blob/main/libs/anaconda-cloud-auth/src/anaconda_cloud_auth/cli.py) plugin for an example custom handler.
 
+### Config file
+
+If your plugin wants to utilize the Anaconda config file, default location `~/.anaconda/config.toml`, to read configuration
+parameters you can derive from `anaconda_cli_base.config.AnacondaBaseSettings` to add a section in the config file for
+your plugin.
+ Each subclass of `AnacondaBaseSettings`
+defines the section header. The base class is configured so that parameters defined in subclasses can be read in the
+following priority from lowest to highest.
+
+1. default value in the subclass of `AnacondaBaseSettings`
+1. Global config file at ~/.anaconda/config.toml
+1. `ANACONDA_<PLUGIN-NAME>_<FIELD>` variables defined in the .env file in your working directory
+1. `ANACONDA_<PLUGIN-NAME>_<FIELD>` env variables set in your shell or on command invocation
+1. value passed as kwarg when using the config subclass directly
+
+Notes:
+
+* `AnacondaBaseSettings` is a subclass of `BaseSettings` from [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/#usage).
+* Nested pydantic models are also supported.
+
+Here's an example subclass
+
+```python
+from anaconda_cli_base.config import AnacondaBaseSettings
+
+class MyPluginConfig(AnacondaBaseSettings, plugin_name="my_plugin"):
+    foo: str = "bar"
+```
+
+To read the config value in your plugin according to the above
+priority:
+
+```python
+config = MyPluginConfig()
+assert config.foo == "bar"
+```
+
+Since there is no value of `foo` in the config file it assumes the default value from the subclass definition.
+
+The value of `foo` can now be written to the config file under the section `my_plugin`
+
+```toml
+# ~/.anaconda/config.toml
+[plugin.my_plugin]
+foo = "baz"
+```
+
+Now that the config file has been written, the value of `foo` is read from the
+config.toml file:
+
+```python
+config = MyPluginConfig()
+assert config.foo == "baz"
+```
+
+See the [tests](https://github.com/anaconda/anaconda-cloud-tools/blob/feat/cli-base-config-file/libs/anaconda-cli-base/tests/test_config.py) for more examples.
+
 ## Setup for development
 
 Ensure you have `conda` installed.
