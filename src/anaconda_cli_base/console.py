@@ -16,12 +16,22 @@ SELECTED = Style(color="green", bold=True)
 
 console = Console(soft_wrap=True)
 
-logging.basicConfig(
-    level=os.getenv("LOGLEVEL", "INFO").upper(),
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[RichHandler()],
-)
+
+def init_logging() -> None:
+    # TODO: We only enable logging in debug level for now
+    #       This is because anaconda-client uses logging for normal
+    #       program output and this really warrants a much larger
+    #       redesign. In anaconda-cli-base, we currently only use
+    #       the logger for debug printing, so we can just do that
+    #       here.
+    log_level = os.getenv("LOGLEVEL", "INFO").upper()
+    if log_level == "DEBUG":
+        logging.basicConfig(
+            level=log_level,
+            format="%(message)s",
+            datefmt="[%X]",
+            handlers=[RichHandler()],
+        )
 
 
 def _generate_table(header: str, rows: List[str], selected: int) -> Table:

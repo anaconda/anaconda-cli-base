@@ -3,6 +3,8 @@ try:
 except ImportError:  # pragma: nocover
     __version__ = "unknown"
 
-from anaconda_cli_base.console import console
+from anaconda_cli_base.console import init_logging, console
 
 __all__ = ["__version__", "console"]
+
+init_logging()

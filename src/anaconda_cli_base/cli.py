@@ -1,5 +1,4 @@
 import functools
-import logging
 import os
 import sys
 from dataclasses import dataclass
@@ -103,9 +102,6 @@ app = typer.Typer(
     help="Welcome to the Anaconda CLI!",
     pretty_exceptions_enable=True,
 )
-
-
-log = logging.getLogger(__name__)
 
 
 @dataclass()
