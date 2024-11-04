@@ -119,7 +119,7 @@ config = MyPluginConfig()
 assert config.foo == "baz"
 ```
 
-See the [tests](https://github.com/anaconda/anaconda-cloud-tools/blob/feat/cli-base-config-file/libs/anaconda-cli-base/tests/test_config.py) for more examples.
+See the [tests](https://github.com/anaconda/anaconda-cli-base/blob/main/tests/test_config.py) for more examples.
 
 ## Setup for development
 
@@ -137,6 +137,7 @@ make test
 ```
 
 ## Run the unit tests across isolated environments with tox
+
 ```shell
 make tox
 ```
