@@ -9,7 +9,7 @@ on:
 
 jobs:
   test:
-    name: Test, Python ${{ matrix.python-version }}
+    name: Python ${{ matrix.python-version }}
     runs-on:
       labels: ubuntu-latest
     strategy:
