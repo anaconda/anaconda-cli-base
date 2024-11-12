@@ -78,7 +78,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # This check job runs to ensure all tests and builds  have passed, such that we can use it as a "wildcard"
+  # This check job runs to ensure all tests and builds have passed, such that we can use it as a "wildcard"
   # for branch protection to ensure all tests pass before a PR can be merged.
   check:
     name: Check all tests passed
