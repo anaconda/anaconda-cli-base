@@ -156,7 +156,6 @@ jobs:
           "A base CLI entrypoint supporting Anaconda CLI plugins" \
           $LABEL \
           --force \
-          --private
 
   publish-to-pypi:
     name: Build & publish to PyPI
