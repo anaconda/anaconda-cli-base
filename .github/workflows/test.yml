@@ -122,7 +122,6 @@ jobs:
           --user anaconda-cloud \
           $LABEL \
           --force \
-          --private \
           ~/anaconda-cli-base-conda-bld/noarch/anaconda-cli-base-*
 
   publish-wheel-to-anaconda-dot-org:
