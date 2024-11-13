@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - "*"
-  pull_request:
 
 jobs:
   check:
@@ -42,7 +41,7 @@ jobs:
           $LABEL \
           --force \
           ~/anaconda-cli-base-conda-bld/noarch/anaconda-cli-base-*
-  
+
   publish-wheel-to-anaconda-dot-org:
     name: Publish wheel to Anaconda.org
     runs-on: ubuntu-latest
@@ -75,7 +74,7 @@ jobs:
           "A base CLI entrypoint supporting Anaconda CLI plugins" \
           $LABEL \
           --force \
-  
+
   publish-to-pypi:
     name: Build & publish to PyPI
     if: startsWith(github.event.ref, 'refs/tags/v')
