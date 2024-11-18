@@ -57,13 +57,16 @@ jobs:
       with:
         name: anaconda-cli-base-wheel-${{ github.sha }}
         path: ~/dist
+    - name: Create build environment
+      run: |
+        source $CONDA/bin/activate
+        conda create -n build --file ./etc/build.linux-64.lock
     - name: Upload to anaconda.org
       env:
         TOKEN: ${{ secrets.ANACONDA_ORG_UPLOAD_TOKEN }}
         GITHUB_REF: ${{ github.ref }}
       run: |
-        source $CONDA/bin/activate
-        conda install -y anaconda-client
+        source $CONDA/bin/activate && conda activate build
         [[ "$GITHUB_REF" =~ ^refs/tags/v ]] || export LABEL="--label dev"
         anaconda --verbose \
           --token $TOKEN \
