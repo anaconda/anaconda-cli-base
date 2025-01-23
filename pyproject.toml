@@ -8,7 +8,8 @@ dependencies = [
   "click",
   "readchar",
   "typer",
-  "pydantic-settings >=2.3"
+  "pydantic-settings >=2.3",
+  "tomli"
 ]
 description = "A base CLI entrypoint supporting Anaconda CLI plugins"
 dynamic = ["version"]
