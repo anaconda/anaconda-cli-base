@@ -93,10 +93,14 @@ jobs:
       with:
         name: anaconda-cli-base-wheel-${{ github.sha }}
         path: ~/dist
-    - name: Install build dependencies
-      run: pip install twine
+    - name: Create build environment
+      run: |
+        source $CONDA/bin/activate
+        conda create -n build --file ./etc/build.linux-64.lock
     - name: Upload to PyPI with twine
-      run: python -m twine upload ~/dist/*
+      run: |
+        source $CONDA/bin/activate && conda activate build
+        twine upload ~/dist/*
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
