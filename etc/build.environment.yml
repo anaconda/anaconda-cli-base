@@ -5,7 +5,9 @@ dependencies:
   - hatchling
   - hatch-vcs>=0.3
   - setuptools-scm>=8.1.0
-  - anaconda-client>=1.12.0
+  - anaconda-client>=1.13.0
+  - twine>=6.1.0
+  - packaging>=24.2
 channels:
   - defaults
   - conda-forge
