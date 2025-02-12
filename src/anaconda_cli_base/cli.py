@@ -146,7 +146,7 @@ def main(
         False,
         "-v",
         "--verbose",
-        help="print debug information on the console",
+        help="Print debug information to the console.",
         hidden=False,
     ),
     quiet: Optional[bool] = typer.Option(
