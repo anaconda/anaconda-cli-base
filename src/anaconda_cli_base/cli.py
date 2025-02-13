@@ -156,14 +156,14 @@ def main(
         help="Only show warnings or errors on the console",
         hidden=True,
     ),
+    version: Optional[bool] = typer.Option(
+        None, "-V", "--version", help="Show version and exit."
+    ),
     show_help: Optional[bool] = typer.Option(
         False,
         "-h",
         "--help",
         help="Show this message and exit.",
-    ),
-    version: Optional[bool] = typer.Option(
-        None, "-V", "--version", help="Show version and exit."
     ),
 ) -> None:
     """Anaconda CLI."""
