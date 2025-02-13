@@ -30,10 +30,19 @@ ENTRY_POINT_TUPLE = Tuple[str, str, typer.Typer]
         pytest.param(("-h",), id="-h"),
     ],
 )
-def test_cli_help(invoke_cli: CLIInvoker, args: Tuple[str]) -> None:
+@pytest.mark.parametrize(
+    "expected_text",
+    [
+        "Welcome to the Anaconda CLI!",
+        "Print debug information to the console.",
+        "Show this message and exit.",
+        "Show version and exit.",
+    ],
+)
+def test_cli_help(invoke_cli: CLIInvoker, args: Tuple[str], expected_text: str) -> None:
     result = invoke_cli(args)
     assert result.exit_code == 0
-    assert "Welcome to the Anaconda CLI!" in result.stdout
+    assert expected_text in result.stdout
 
 
 def test_cli_version(invoke_cli: CLIInvoker) -> None:
