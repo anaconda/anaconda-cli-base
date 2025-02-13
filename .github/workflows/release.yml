@@ -1,7 +1,9 @@
-name: "release"
+name: release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
 
@@ -12,7 +14,6 @@ jobs:
   publish-conda-pkg-to-anaconda-dot-org:
     name: Publish conda package to Anaconda.org
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'  # Only run on push to main branch
     needs: [test]
     steps:
     - name: Retrieve the source code
@@ -26,13 +27,14 @@ jobs:
     - name: Download the build artifacts
       uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
       with:
-        name: anaconda-cli-base-conda-${{ github.sha }}
-        path: ~/anaconda-cli-base-conda-bld
+        name: conda-${{ github.sha }}
+        path: ./conda-bld
     - name: publish
       env:
         TOKEN: ${{ secrets.ANACONDA_ORG_UPLOAD_TOKEN }}
       run: |
         source $CONDA/bin/activate && conda activate build
+        # If it's not a tagged release, publish to dev label
         [[ "$GITHUB_REF" =~ ^refs/tags/v ]] || export LABEL="--label dev"
         anaconda --verbose \
           --token $TOKEN \
@@ -40,12 +42,11 @@ jobs:
           --user anaconda-cloud \
           $LABEL \
           --force \
-          ~/anaconda-cli-base-conda-bld/noarch/anaconda-cli-base-*
+          ./conda-bld/noarch/anaconda-*
 
   publish-wheel-to-anaconda-dot-org:
     name: Publish wheel to Anaconda.org
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'  # Only run on push to main branch
     needs: [test]
     steps:
     - name: Retrieve the source code
@@ -55,8 +56,8 @@ jobs:
     - name: Download the build artifacts
       uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
       with:
-        name: anaconda-cli-base-wheel-${{ github.sha }}
-        path: ~/dist
+        name: wheel-${{ github.sha }}
+        path: ./dist
     - name: Create build environment
       run: |
         source $CONDA/bin/activate
@@ -67,19 +68,19 @@ jobs:
         GITHUB_REF: ${{ github.ref }}
       run: |
         source $CONDA/bin/activate && conda activate build
+        # If it's not a tagged release, publish to dev label
         [[ "$GITHUB_REF" =~ ^refs/tags/v ]] || export LABEL="--label dev"
         anaconda --verbose \
           --token $TOKEN \
           upload \
           --user anaconda-cloud \
-          ~/dist/*.whl \
-          --summary \
-          "A base CLI entrypoint supporting Anaconda CLI plugins" \
           $LABEL \
           --force \
+          ./dist/*.whl
 
   publish-to-pypi:
     name: Build & publish to PyPI
+    # Only publish to PyPI if a tagged release
     if: startsWith(github.event.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     needs: [test]
@@ -91,8 +92,8 @@ jobs:
     - name: Download the build artifacts
       uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
       with:
-        name: anaconda-cli-base-wheel-${{ github.sha }}
-        path: ~/dist
+        name: wheel-${{ github.sha }}
+        path: ./dist
     - name: Create build environment
       run: |
         source $CONDA/bin/activate
