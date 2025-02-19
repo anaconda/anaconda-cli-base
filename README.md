@@ -119,6 +119,89 @@ config = MyPluginConfig()
 assert config.foo == "baz"
 ```
 
+### Nested tables
+
+The AnacondaBaseSettings supports nested Pydantic models.
+
+```python
+from anaconda_cli_base.config import AnacondaBaseSettings
+from pydantic import BaseModel
+
+class Nested(BaseModel):
+    n1: int = 0
+    n2: int = 0
+
+class MyPluginConfig(AnacondaBaseSettings, plugin_name="my_plugin"):
+    foo: str = "bar"
+    nested: Nested = Nested()
+```
+
+In the `~/.anaconda/config.toml` you can set values of nested fields as an in-line table
+
+```toml
+# ~/.anaconda/config.toml
+[plugin.my_plugin]
+foo = "baz"
+nested = { n1 = 1, n2 = 2}
+```
+
+Or as a separate table entry
+
+```toml
+# ~/.anaconda/config.toml
+[plugin.my_plugin]
+foo = "baz"
+
+[plugin.my_plugin.nested]
+n1 = 1
+n2 = 2
+```
+
+To set environment variables use the `__` delimiter
+
+```bash
+ANACONDA_MY_PLUGIN_NESTED__N1=1
+ANACONDA_MY_PLUGIN_NESTED__N2=2
+```
+
+### Nested plugins
+
+You can pass a tuple to `plugin_name=` in subclasses of `AnacondaBaseSettings` to nest whole plugins,
+which may be defined in separate packages.
+
+```python
+class Nested(BaseModel):
+    n1: int = 0
+    n2: int = 0
+class MyPluginConfig(AnacondaBaseSettings, plugin_name="my_plugin"):
+    foo: str = "bar"
+    nested: Nested = Nested()
+```
+
+Then in another package you can nest a new config into `my_plugin`.
+
+```python
+class MyPluginExtrasConfig(AnacondaBaseSettings, plugin_name=("my_plugin", "extras")):
+    field: str = "default"
+```
+
+The new config table is now nested in the config.toml
+
+```toml
+# ~/.anaconda/config.toml
+[plugin.my_plugin]
+foo = "baz"
+nested = { n1 = 1, n2 = 2}
+[plugin.my_plugin.extras]
+field = "value"
+```
+
+And can be set by env variable using the concatenation of `plugin_name`
+
+```bash
+ANACONDA_MY_PLUGIN_EXTRAS_FIELD="value"
+```
+
 See the [tests](https://github.com/anaconda/anaconda-cli-base/blob/main/tests/test_config.py) for more examples.
 
 ## Setup for development
