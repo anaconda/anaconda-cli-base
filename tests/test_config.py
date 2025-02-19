@@ -128,6 +128,7 @@ def test_subclass(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
 
     class Subclass(DerivedSettings, plugin_name="subclass"): ...
+    assert Subclass.model_config.get("env_prefix", "") == "ANACONDA_SUBCLASS_"
 
     config_file.write_text(
         dedent("""\
