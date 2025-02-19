@@ -24,18 +24,18 @@ def anaconda_config_path() -> Path:
 
 
 class AnacondaBaseSettings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        pyproject_toml_table_header=(),
-        env_prefix="ANACONDA_",
-        env_nested_delimiter="__",
-        extra="ignore",
-        ignored_types=(cached_property,),
-    )
-
     def __init_subclass__(
         cls, plugin_name: Optional[str] = None, **kwargs: Any
     ) -> None:
+        cls.model_config = SettingsConfigDict(
+            env_file=".env",
+            pyproject_toml_table_header=(),
+            env_prefix="ANACONDA_",
+            env_nested_delimiter="__",
+            extra="ignore",
+            ignored_types=(cached_property,),
+        )
+
         cls.model_config["pyproject_toml_table_header"] = (
             ()
             if plugin_name is None

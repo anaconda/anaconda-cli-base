@@ -121,3 +121,24 @@ def test_settings_validation_failed(
     )
     with pytest.raises(ValidationError):
         _ = DerivedSettings()
+
+
+def test_subclass(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+    config_file = tmp_path / "config.toml"
+    monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
+
+    class Subclass(DerivedSettings, plugin_name="subclass"): ...
+
+    config_file.write_text(
+        dedent("""\
+        [plugin.subclass]
+        foo = "subclass-config"
+    """)
+    )
+
+    config = Subclass()
+    assert config.foo == "subclass-config"
+
+    monkeypatch.setenv("ANACONDA_SUBCLASS_FOO", "subclass-env")
+    config = Subclass()
+    assert config.foo == "subclass-env"
