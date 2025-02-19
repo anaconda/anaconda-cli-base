@@ -30,6 +30,8 @@ class AnacondaBaseSettings(BaseSettings):
         cls, plugin_name: Optional[Union[str, tuple]] = None, **kwargs: Any
     ) -> None:
         base_env_prefix: str = "ANACONDA_"
+        pyproject_toml_table_header: Tuple[str, ...]
+
         if plugin_name is None:
             pyproject_toml_table_header = ()
             env_prefix = base_env_prefix
