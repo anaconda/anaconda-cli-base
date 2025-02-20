@@ -44,7 +44,7 @@ class AnacondaBaseSettings(BaseSettings):
             pyproject_toml_table_header = ("plugin", plugin_name)
             env_prefix = base_env_prefix + f"{plugin_name.upper()}_"
         else:
-            raise ValueError(f"plugin_name={plugin_name} is not supported. It must be either a list or tuple.")
+            raise ValueError(f"plugin_name={plugin_name} is not supported. It must be either a str or tuple.")
 
         cls.model_config = SettingsConfigDict(
             env_file=".env",
