@@ -21,7 +21,7 @@ class DerivedSettings(AnacondaBaseSettings, plugin_name="derived"):
     optional: Optional[int] = None
 
 
-def test_settings_plugin_name() -> None:
+def test_settings_plugin_name_str() -> None:
     env_prefix = DerivedSettings.model_config.get("env_prefix", "")
     assert env_prefix == "ANACONDA_DERIVED_"
 
@@ -32,6 +32,30 @@ def test_settings_plugin_name() -> None:
         "plugin",
         "derived",
     )
+
+
+def test_settings_plugin_name_tuple() -> None:
+    class TupleName(DerivedSettings, plugin_name=("nested", "settings")): ...
+
+    env_prefix = TupleName.model_config.get("env_prefix", "")
+    assert env_prefix == "ANACONDA_NESTED_SETTINGS_"
+
+    table_header = TupleName.model_config.get(
+        "pyproject_toml_table_header", tuple()
+    )
+    assert table_header == (
+        "plugin",
+        "nested",
+        "settings"
+    )
+
+
+def test_settings_plugin_name_error() -> None:
+    with pytest.raises(ValueError):
+        class FailList(DerivedSettings, plugin_name=["nested", "settings"]): ...
+
+    with pytest.raises(ValueError):
+        class FailType(DerivedSettings, plugin_name=["nested", 0]): ...
 
 
 def test_settings_priority(
@@ -121,3 +145,51 @@ def test_settings_validation_failed(
     )
     with pytest.raises(ValidationError):
         _ = DerivedSettings()
+
+
+def test_subclass(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+    config_file = tmp_path / "config.toml"
+    monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
+
+    class Subclass(DerivedSettings, plugin_name="subclass"): ...
+    assert Subclass.model_config.get("env_prefix", "") == "ANACONDA_SUBCLASS_"
+
+    config_file.write_text(
+        dedent("""\
+        [plugin.subclass]
+        foo = "subclass-config"
+    """)
+    )
+
+    config = Subclass()
+    assert config.foo == "subclass-config"
+
+    monkeypatch.setenv("ANACONDA_SUBCLASS_FOO", "subclass-env")
+    config = Subclass()
+    assert config.foo == "subclass-env"
+
+
+def test_nested_plugins(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+    config_file = tmp_path / "config.toml"
+    monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
+
+    class ExtrasConfig(AnacondaBaseSettings, plugin_name=("derived", "extras")):
+        value: str = "default"
+
+    config_file.write_text(
+        dedent("""\
+        [plugin.derived]
+        foo = "toml"
+        [plugin.derived.nested]
+        field = "toml"
+        [plugin.derived.extras]
+        value = "toml"
+    """)
+    )
+
+    config = ExtrasConfig()
+    assert config.value == "toml"
+
+    monkeypatch.setenv("ANACONDA_DERIVED_EXTRAS_VALUE", "env")
+    config = ExtrasConfig()
+    assert config.value == "env"
