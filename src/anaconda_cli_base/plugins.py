@@ -1,4 +1,5 @@
 import logging
+import warnings
 from importlib.metadata import EntryPoint
 from importlib.metadata import entry_points
 from sys import version_info
@@ -27,10 +28,22 @@ def _load_entry_points_for_group(group: str) -> List[Tuple[str, str, Typer]]:
 
     loaded = []
     for entry_point in found_entry_points:
-        module: Typer = entry_point.load()
+        with warnings.catch_warnings():
+            # Suppress anaconda-cloud-auth rename warnings just during entrypoint load
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
+            module: Typer = entry_point.load()
         loaded.append((entry_point.name, entry_point.value, module))
 
     return loaded
+
+
+AUTH_HANDLER_ALIASES = {"cloud": "anaconda.com"}
+try:
+    import binstar_client  # noqa: F401
+except (ImportError, ModuleNotFoundError):
+    pass
+else:
+    AUTH_HANDLER_ALIASES["org"] = "anaconda.org"
 
 
 def load_registered_subcommands(app: Typer) -> None:
@@ -44,11 +57,16 @@ def load_registered_subcommands(app: Typer) -> None:
 
         if "login" in [cmd.name for cmd in subcommand_app.registered_commands]:
             auth_handlers[name] = subcommand_app
+            alias = AUTH_HANDLER_ALIASES.get(name, name)
+            auth_handlers[alias] = subcommand_app
 
         app.add_typer(subcommand_app, name=name, rich_help_panel="Plugins")
 
     if auth_handlers:
-        app._load_auth_handlers(auth_handlers)  # type: ignore
+        auth_handlers_dropdown = sorted(list(AUTH_HANDLER_ALIASES.values()))
+        app._load_auth_handlers(  # type: ignore
+            auth_handlers=auth_handlers, auth_handlers_dropdown=auth_handlers_dropdown
+        )
 
         log.debug(
             "Loaded subcommand '%s' from '%s'",
