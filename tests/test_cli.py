@@ -199,7 +199,7 @@ def test_load_cloud_plugin(
 
 
 @pytest.fixture
-def org_plugin(monkeypatch) -> ENTRY_POINT_TUPLE:
+def org_plugin(monkeypatch: MonkeyPatch) -> ENTRY_POINT_TUPLE:
     # Ensure that the full set of aliases is available, since we might not actually
     # have anaconda-client installed to do the conditional check.
     monkeypatch.setattr(
