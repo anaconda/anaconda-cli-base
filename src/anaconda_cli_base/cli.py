@@ -184,7 +184,9 @@ def main(
         raise typer.Exit()
 
 
-def _load_auth_handlers(auth_handlers: Dict[str, typer.Typer], auth_handlers_dropdown: List[str]) -> None:
+def _load_auth_handlers(
+    auth_handlers: Dict[str, typer.Typer], auth_handlers_dropdown: List[str]
+) -> None:
     def validate_at(ctx: typer.Context, _: Any, choice: str) -> str:
         show_help = ctx.params.get("help", False) is True
         if show_help:
@@ -193,7 +195,11 @@ def _load_auth_handlers(auth_handlers: Dict[str, typer.Typer], auth_handlers_dro
             raise typer.Exit()
 
         if choice is None:
-            choice = select_from_list("choose destination:", auth_handlers_dropdown)
+            if len(auth_handlers_dropdown) > 1:
+                choice = select_from_list("choose destination:", auth_handlers_dropdown)
+            else:
+                # If only one is available, we don't need a picker
+                (choice,) = auth_handlers_dropdown
 
         elif choice not in auth_handlers:
             print(
