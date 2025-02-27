@@ -50,7 +50,8 @@ def load_registered_subcommands(app: Typer) -> None:
 
         if "login" in [cmd.name for cmd in subcommand_app.registered_commands]:
             auth_handlers[name] = subcommand_app
-            auth_handlers[AUTH_HANDLER_ALIASES[name]] = subcommand_app
+            alias = AUTH_HANDLER_ALIASES.get(name, name)
+            auth_handlers[alias] = subcommand_app
 
         app.add_typer(subcommand_app, name=name, rich_help_panel="Plugins")
 
