@@ -199,7 +199,13 @@ def test_load_cloud_plugin(
 
 
 @pytest.fixture
-def org_plugin() -> ENTRY_POINT_TUPLE:
+def org_plugin(monkeypatch) -> ENTRY_POINT_TUPLE:
+    # Ensure that the full set of aliases is available, since we might not actually
+    # have anaconda-client installed to do the conditional check.
+    monkeypatch.setattr(
+        "anaconda_cli_base.plugins.AUTH_HANDLER_ALIASES",
+        {"cloud": "anaconda.com", "org": "anaconda.org"},
+    )
     plugin = typer.Typer(name="org", add_completion=False, no_args_is_help=True)
 
     @plugin.command("action")
@@ -394,7 +400,9 @@ def test_login_select(
     load_registered_subcommands(cast(typer.Typer, anaconda_cli_base.cli.app))
 
     result = invoke_cli(["login"])
-    assert result.stdout.strip().startswith("choose destination: \n * anaconda.com      \n   anaconda.org")
+    assert result.stdout.strip().startswith(
+        "choose destination: \n * anaconda.com      \n   anaconda.org"
+    )
 
     result = invoke_cli(["login"], input="\n")
     assert result.exit_code == 0
