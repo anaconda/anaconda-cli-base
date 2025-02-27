@@ -33,6 +33,12 @@ def _load_entry_points_for_group(group: str) -> List[Tuple[str, str, Typer]]:
     return loaded
 
 
+AUTH_HANDLER_ALIASES = {
+    "cloud": "anaconda.com",
+    "org": "anaconda.org"
+}
+
+
 def load_registered_subcommands(app: Typer) -> None:
     """Load all subcommands from plugins."""
     subcommand_entry_points = _load_entry_points_for_group(PLUGIN_GROUP_NAME)
@@ -44,11 +50,17 @@ def load_registered_subcommands(app: Typer) -> None:
 
         if "login" in [cmd.name for cmd in subcommand_app.registered_commands]:
             auth_handlers[name] = subcommand_app
+            auth_handlers[AUTH_HANDLER_ALIASES[name]] = subcommand_app
 
         app.add_typer(subcommand_app, name=name, rich_help_panel="Plugins")
 
     if auth_handlers:
-        app._load_auth_handlers(auth_handlers)  # type: ignore
+        auth_handlers_dropdown = sorted(list(AUTH_HANDLER_ALIASES.values()))
+        app._load_auth_handlers(  # type: ignore
+            auth_handlers=auth_handlers,
+            auth_handlers_dropdown=auth_handlers_dropdown
+        )
+
 
         log.debug(
             "Loaded subcommand '%s' from '%s'",

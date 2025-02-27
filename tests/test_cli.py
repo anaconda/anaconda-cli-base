@@ -185,7 +185,15 @@ def test_load_cloud_plugin(
     assert result.exit_code == 0
     assert result.stdout == "cloud: You're in\n"
 
+    result = invoke_cli(["login", "--at", "anaconda.com"])
+    assert result.exit_code == 0
+    assert result.stdout == "cloud: You're in\n"
+
     result = invoke_cli(["login", "--at", "cloud", "--help"])
+    assert result.exit_code == 0
+    assert "--force" in result.stdout
+
+    result = invoke_cli(["login", "--at", "anaconda.com", "--help"])
     assert result.exit_code == 0
     assert "--force" in result.stdout
 
@@ -357,6 +365,14 @@ def test_org_subcommand(
     assert result.exit_code == 0
     assert "org: done\n" == result.stdout
 
+    result = invoke_cli(["login", "--at", "org"])
+    assert result.exit_code == 0
+    assert result.stdout == "org: You're in\n"
+
+    result = invoke_cli(["login", "--at", "anaconda.org"])
+    assert result.exit_code == 0
+    assert result.stdout == "org: You're in\n"
+
 
 def test_login_select(
     invoke_cli: CLIInvoker,
@@ -377,17 +393,20 @@ def test_login_select(
     )
     load_registered_subcommands(cast(typer.Typer, anaconda_cli_base.cli.app))
 
-    result = invoke_cli(["login"], input="\n")
-    assert result.exit_code == 0
-    assert result.stdout.strip().splitlines()[-1].endswith("org: You're in")
+    result = invoke_cli(["login"])
+    assert result.stdout.strip().startswith("choose destination: \n * anaconda.com      \n   anaconda.org")
 
-    result = invoke_cli(["login"], input="j\n")
+    result = invoke_cli(["login"], input="\n")
     assert result.exit_code == 0
     assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
 
-    result = invoke_cli(["login"], input="jk\n")
+    result = invoke_cli(["login"], input="j\n")
     assert result.exit_code == 0
     assert result.stdout.strip().splitlines()[-1].endswith("org: You're in")
+
+    result = invoke_cli(["login"], input="jk\n")
+    assert result.exit_code == 0
+    assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
 
     # These cannot be tested because key.UP and key.DOWN send multiple characters
     # through to click.getchar, but that does not happen interactively.

@@ -184,7 +184,7 @@ def main(
         raise typer.Exit()
 
 
-def _load_auth_handlers(auth_handlers: Dict[str, typer.Typer]) -> None:
+def _load_auth_handlers(auth_handlers: Dict[str, typer.Typer], auth_handlers_dropdown: List[str]) -> None:
     def validate_at(ctx: typer.Context, _: Any, choice: str) -> str:
         show_help = ctx.params.get("help", False) is True
         if show_help:
@@ -193,11 +193,11 @@ def _load_auth_handlers(auth_handlers: Dict[str, typer.Typer]) -> None:
             raise typer.Exit()
 
         if choice is None:
-            choice = select_from_list("choose destination:", list(auth_handlers))
+            choice = select_from_list("choose destination:", auth_handlers_dropdown)
 
         elif choice not in auth_handlers:
             print(
-                f"{choice} is not an allowed value for --at. Use one of {list(auth_handlers)}"
+                f"{choice} is not an allowed value for --at. Use one of {auth_handlers_dropdown}"
             )
             raise typer.Abort()
         return choice
@@ -205,7 +205,7 @@ def _load_auth_handlers(auth_handlers: Dict[str, typer.Typer]) -> None:
     def _action(
         ctx: typer.Context,
         at: str = typer.Option(
-            None, callback=validate_at, help=f"Choose from {list(auth_handlers)}"
+            None, callback=validate_at, help=f"Choose from {auth_handlers_dropdown}"
         ),
         help: bool = typer.Option(False, "--help"),
     ) -> None:
