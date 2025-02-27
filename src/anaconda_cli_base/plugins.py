@@ -37,7 +37,13 @@ def _load_entry_points_for_group(group: str) -> List[Tuple[str, str, Typer]]:
     return loaded
 
 
-AUTH_HANDLER_ALIASES = {"cloud": "anaconda.com", "org": "anaconda.org"}
+AUTH_HANDLER_ALIASES = {"cloud": "anaconda.com"}
+try:
+    import binstar_client  # noqa: F401
+except (ImportError, ModuleNotFoundError):
+    pass
+else:
+    AUTH_HANDLER_ALIASES["org"] = "anaconda.org"
 
 
 def load_registered_subcommands(app: Typer) -> None:
