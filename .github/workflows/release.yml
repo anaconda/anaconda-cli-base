@@ -101,7 +101,7 @@ jobs:
     - name: Upload to PyPI with twine
       run: |
         source $CONDA/bin/activate && conda activate build
-        twine upload ~/dist/*
+        twine upload ./dist/*
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
