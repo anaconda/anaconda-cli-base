@@ -79,7 +79,7 @@ jobs:
           ./dist/*.whl
 
   publish-to-pypi:
-    name: Build & publish to PyPI
+    name: Publish to PyPI
     # Only publish to PyPI if a tagged release
     if: startsWith(github.event.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
