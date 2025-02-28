@@ -37,19 +37,17 @@ def _load_entry_points_for_group(group: str) -> List[Tuple[str, str, Typer]]:
     return loaded
 
 
-AUTH_HANDLER_ALIASES = {"cloud": "anaconda.com"}
-try:
-    import binstar_client  # noqa: F401
-except (ImportError, ModuleNotFoundError):
-    pass
-else:
-    AUTH_HANDLER_ALIASES["org"] = "anaconda.org"
+AUTH_HANDLER_ALIASES = {
+    "cloud": "anaconda.com",
+    "org": "anaconda.org"
+}
 
 
 def load_registered_subcommands(app: Typer) -> None:
     """Load all subcommands from plugins."""
     subcommand_entry_points = _load_entry_points_for_group(PLUGIN_GROUP_NAME)
     auth_handlers: Dict[str, Typer] = {}
+    auth_handler_selectors: List[str] = []
     for name, value, subcommand_app in subcommand_entry_points:
         # Allow plugins to disable this if they explicitly want to, but otherwise make True the default
         if isinstance(subcommand_app.info.no_args_is_help, DefaultPlaceholder):
@@ -57,13 +55,18 @@ def load_registered_subcommands(app: Typer) -> None:
 
         if "login" in [cmd.name for cmd in subcommand_app.registered_commands]:
             auth_handlers[name] = subcommand_app
-            alias = AUTH_HANDLER_ALIASES.get(name, name)
-            auth_handlers[alias] = subcommand_app
+            alias = AUTH_HANDLER_ALIASES.get(name)
+            if alias:
+                auth_handlers[alias] = subcommand_app
+                auth_handler_selectors.append(alias)
+            else:
+                auth_handler_selectors.append(name)
+
 
         app.add_typer(subcommand_app, name=name, rich_help_panel="Plugins")
 
     if auth_handlers:
-        auth_handlers_dropdown = sorted(list(AUTH_HANDLER_ALIASES.values()))
+        auth_handlers_dropdown = sorted(auth_handler_selectors)
         app._load_auth_handlers(  # type: ignore
             auth_handlers=auth_handlers, auth_handlers_dropdown=auth_handlers_dropdown
         )
