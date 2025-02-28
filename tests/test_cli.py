@@ -200,12 +200,6 @@ def test_load_cloud_plugin(
 
 @pytest.fixture
 def org_plugin(monkeypatch: MonkeyPatch) -> ENTRY_POINT_TUPLE:
-    # Ensure that the full set of aliases is available, since we might not actually
-    # have anaconda-client installed to do the conditional check.
-    monkeypatch.setattr(
-        "anaconda_cli_base.plugins.AUTH_HANDLER_ALIASES",
-        {"cloud": "anaconda.com", "org": "anaconda.org"},
-    )
     plugin = typer.Typer(name="org", add_completion=False, no_args_is_help=True)
 
     @plugin.command("action")
@@ -380,7 +374,7 @@ def test_org_subcommand(
     assert result.stdout == "org: You're in\n"
 
 
-def test_login_select(
+def test_login_select_multiple_plugins(
     invoke_cli: CLIInvoker,
     org_plugin: ENTRY_POINT_TUPLE,
     cloud_plugin: ENTRY_POINT_TUPLE,
@@ -430,6 +424,47 @@ def test_login_select(
     # result = invoke_cli(["login"], input=key.UP+key.ENTER)
     # assert result.exit_code == 0
     # assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
+
+
+def test_login_select_hidden_org(
+    invoke_cli: CLIInvoker,
+    org_plugin: ENTRY_POINT_TUPLE,
+    mocker: MockerFixture,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Single plugin installed, selector hidden"""
+
+    # these env vars should not be set in a normal env for this test
+    monkeypatch.delenv("ANACONDA_CLI_FORCE_NEW", raising=False)
+    monkeypatch.delenv("ANACONDA_CLIENT_FORCE_STANDALONE", raising=False)
+
+    plugins = [org_plugin]
+    mocker.patch(
+        "anaconda_cli_base.plugins._load_entry_points_for_group", return_value=plugins
+    )
+    load_registered_subcommands(cast(typer.Typer, anaconda_cli_base.cli.app))
+
+    result = invoke_cli(["login"])
+    assert result.exit_code == 0
+    assert result.stdout.strip() == "org: You're in"
+
+
+def test_login_select_hidden_cloud(
+    invoke_cli: CLIInvoker,
+    cloud_plugin: ENTRY_POINT_TUPLE,
+    mocker: MockerFixture,
+) -> None:
+    """Single plugins installed, selector hidden"""
+
+    plugins = [cloud_plugin]
+    mocker.patch(
+        "anaconda_cli_base.plugins._load_entry_points_for_group", return_value=plugins
+    )
+    load_registered_subcommands(cast(typer.Typer, anaconda_cli_base.cli.app))
+
+    result = invoke_cli(["login"])
+    assert result.exit_code == 0
+    assert result.stdout.strip() == "cloud: You're in"
 
 
 def test_capture_top_level_params(
