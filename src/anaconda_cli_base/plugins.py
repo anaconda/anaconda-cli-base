@@ -37,10 +37,7 @@ def _load_entry_points_for_group(group: str) -> List[Tuple[str, str, Typer]]:
     return loaded
 
 
-AUTH_HANDLER_ALIASES = {
-    "cloud": "anaconda.com",
-    "org": "anaconda.org"
-}
+AUTH_HANDLER_ALIASES = {"cloud": "anaconda.com", "org": "anaconda.org"}
 
 
 def load_registered_subcommands(app: Typer) -> None:
@@ -59,9 +56,8 @@ def load_registered_subcommands(app: Typer) -> None:
             if alias:
                 auth_handlers[alias] = subcommand_app
                 auth_handler_selectors.append(alias)
-            else:
+            elif name != "auth":
                 auth_handler_selectors.append(name)
-
 
         app.add_typer(subcommand_app, name=name, rich_help_panel="Plugins")
 
