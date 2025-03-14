@@ -14,7 +14,8 @@ from anaconda_cli_base.deprecations import DeprecatedError, DeprecationHandler
 if TYPE_CHECKING:
     from packaging.version import Version
 
-    from anaconda_cli_base.deprecations import DevDeprecationType, UserDeprecationType
+    DevDeprecationType = DeprecatedError
+    UserDeprecationType = DeprecationWarning
 
 PENDING = pytest.param(
     DeprecationHandler("1.0"),  # deprecated
