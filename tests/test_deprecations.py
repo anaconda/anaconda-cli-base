@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from binstar_client.deprecations import DeprecatedError, DeprecationHandler
+from anaconda_cli_base.deprecations import DeprecatedError, DeprecationHandler
 
 if TYPE_CHECKING:
     from packaging.version import Version
 
-    from binstar_client.deprecations import DevDeprecationType, UserDeprecationType
+    from anaconda_cli_base.deprecations import DevDeprecationType, UserDeprecationType
 
 PENDING = pytest.param(
     DeprecationHandler("1.0"),  # deprecated
