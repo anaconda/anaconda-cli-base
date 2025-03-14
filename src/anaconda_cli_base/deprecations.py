@@ -69,7 +69,7 @@ class DeprecationHandler:
 
         # If self._version or version could not be represented by a simple
         # tuple[int, ...], do a more elaborate version parsing and comparison.
-        # Avoid this import otherwise to reduce import time for conda activate.
+        # Avoid this import otherwise to reduce import time.
         from packaging.version import parse
 
         if self._version_object is None:
