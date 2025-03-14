@@ -418,4 +418,4 @@ class DeprecationHandler:
         )
 
 
-deprecated = DeprecationHandler(__version__)
+deprecated: DeprecationHandler = DeprecationHandler(__version__)
