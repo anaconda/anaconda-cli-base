@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from argparse import ArgumentParser, Namespace
-    from typing import Any, Callable, ParamSpec, Self, TypeVar
+    from typing import Any, Callable, TypeVar
+    from typing_extensions import ParamSpec, Self
 
     from packaging.version import Version
 
@@ -365,7 +366,8 @@ class DeprecationHandler:
             else:
                 for loaded in sys.modules.values():
                     if not isinstance(loaded, ModuleType):
-                        continue
+                        # sys.modules typed as Iterable of ModuleType
+                        continue  # type: ignore
                     if not hasattr(loaded, "__file__"):
                         continue
                     if loaded.__file__ == filename:
