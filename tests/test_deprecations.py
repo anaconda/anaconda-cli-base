@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from argparse import ArgumentParser, _StoreTrueAction
 from contextlib import nullcontext
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -61,10 +61,10 @@ def test_function(
     with nullcontext() if warning else pytest.raises(DeprecatedError):
 
         @deprecated(deprecate_in="2.0", remove_in="3.0")
-        def foo():
+        def foo() -> bool:
             return True
 
-        with pytest.warns(warning, match=message):
+        with pytest.warns(warning, match=message):  # type: ignore
             assert foo()
 
 
@@ -79,10 +79,10 @@ def test_method(
 
         class Bar:
             @deprecated("2.0", "3.0")
-            def foo(self):
+            def foo(self) -> bool:
                 return True
 
-        with pytest.warns(warning, match=message):
+        with pytest.warns(warning, match=message):  # type: ignore
             assert Bar().foo()
 
 
@@ -99,7 +99,7 @@ def test_class(
         class Foo:
             pass
 
-        with pytest.warns(warning, match=message):
+        with pytest.warns(warning, match=message):  # type: ignore
             assert Foo()
 
 
@@ -113,7 +113,7 @@ def test_arguments(
     with nullcontext() if warning else pytest.raises(DeprecatedError):
 
         @deprecated.argument("2.0", "3.0", "three")
-        def foo(one, two):
+        def foo(one: Any, two: Any) -> bool:
             return True
 
         # too many arguments, can only deprecate keyword arguments
@@ -121,7 +121,7 @@ def test_arguments(
             assert foo(1, 2, 3)
 
         # alerting user to pending deprecation
-        with pytest.warns(warning, match=message):
+        with pytest.warns(warning, match=message):  # type: ignore
             assert foo(1, 2, three=3)
 
         # normal usage not needing deprecation
@@ -142,7 +142,7 @@ def test_action(
             action=deprecated.action("2.0", "3.0", _StoreTrueAction),
         )
 
-        with pytest.warns(warning, match=message):
+        with pytest.warns(warning, match=message):  # type: ignore
             parser.parse_args(["--foo"])
 
 
@@ -153,11 +153,12 @@ def test_module(
     message: str | None,
 ) -> None:
     """Importing a deprecated module displays associated warning (or error)."""
-    with (
+    context = (
         pytest.warns(warning, match=message)
         if warning
         else pytest.raises(DeprecatedError)
-    ):
+    )
+    with context:
         deprecated.module("2.0", "3.0")
 
 
@@ -172,7 +173,7 @@ def test_constant(
         deprecated.constant("2.0", "3.0", "SOME_CONSTANT", 42)
         module = sys.modules[__name__]
 
-        with pytest.warns(warning, match=message):
+        with pytest.warns(warning, match=message):  # type: ignore
             module.SOME_CONSTANT
 
 
@@ -183,11 +184,12 @@ def test_topic(
     message: str | None,
 ) -> None:
     """Reaching a deprecated topic displays associated warning (or error)."""
-    with (
+    context = (
         pytest.warns(warning, match=message)
         if warning
         else pytest.raises(DeprecatedError)
-    ):
+    )
+    with context:
         deprecated.topic("2.0", "3.0", topic="Some special topic")
 
 
