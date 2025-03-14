@@ -11,6 +11,8 @@ from functools import wraps
 from types import ModuleType
 from typing import TYPE_CHECKING
 
+from anaconda_cli_base import __version__
+
 if TYPE_CHECKING:
     from argparse import ArgumentParser, Namespace
     from typing import Any, Callable, TypeVar
@@ -22,8 +24,6 @@ if TYPE_CHECKING:
     P = ParamSpec("P")
 
     ActionType = TypeVar("ActionType", bound=type[Action])
-
-from anaconda_cli_base import __version__
 
 
 class DeprecatedError(RuntimeError):
