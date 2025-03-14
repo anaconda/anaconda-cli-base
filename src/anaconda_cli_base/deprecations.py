@@ -1,6 +1,12 @@
 # Copyright (C) 2012 Anaconda, Inc
 # SPDX-License-Identifier: BSD-3-Clause
-"""Reusable helpers for deprecating functionality."""
+"""
+Reusable helpers for deprecating functionality.
+
+Note: most of this file has been copied from conda's implementation. Usage
+documentation can be found here: https://docs.conda.io/projects/conda/en/latest/dev-guide/deprecations.html
+
+"""
 
 from __future__ import annotations
 
