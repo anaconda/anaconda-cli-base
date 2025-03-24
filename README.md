@@ -206,6 +206,18 @@ See the [tests](https://github.com/anaconda/anaconda-cli-base/blob/main/tests/te
 
 ## Setup for development
 
+### Clone the repo
+
+TODO
+
+### Install pre-commit
+
+```shell
+pre-commit install
+```
+
+### Setup the dev environment
+
 Ensure you have `conda` installed.
 Then run:
 
