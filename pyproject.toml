@@ -8,6 +8,7 @@ dependencies = [
   "click",
   "readchar",
   "typer",
+  "packaging >=23.0",
   "pydantic-settings >=2.3",
   "tomli"
 ]
