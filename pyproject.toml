@@ -76,6 +76,10 @@ ignore_missing_imports = true
 module = "binstar_client.*"
 
 [[tool.mypy.overrides]]
+ignore_errors = true
+module = "pydantic"
+
+[[tool.mypy.overrides]]
 ignore_missing_imports = true
 module = "rich_click.*"
 
