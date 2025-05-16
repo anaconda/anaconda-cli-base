@@ -93,7 +93,7 @@ class AnacondaBaseSettings(BaseSettings):
                 kwarg = error["loc"][0]
                 if kwarg in kwargs:
                     value = kwargs[kwarg]
-                    msg = f"- Error in {e.title}({error['loc'][0]}={value})\n    {msg}"
+                    msg = f"- Error in init kwarg {e.title}({error['loc'][0]}={value})\n    {msg}"
                 elif env_var in os.environ:
                     msg = f"- Error in environment variable {env_var}={input_value}\n    {msg}"
                 else:
@@ -103,7 +103,7 @@ class AnacondaBaseSettings(BaseSettings):
 
                 errors.append(msg)
 
-            message = "\n".join(errors)
+            message = "\n" + "\n".join(errors)
 
             raise AnacondaConfigValidationError(message)
 
