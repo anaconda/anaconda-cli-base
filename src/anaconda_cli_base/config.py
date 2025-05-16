@@ -74,7 +74,7 @@ class AnacondaBaseSettings(BaseSettings):
 
         return super().__init_subclass__(**kwargs)
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         try:
             super().__init__(**kwargs)
         except ValidationError as e:
@@ -83,10 +83,13 @@ class AnacondaBaseSettings(BaseSettings):
                 input_value = error["input"]
                 msg = error["msg"]
 
-                env_var = self.model_config.get("env_prefix", "") + self.model_config.get("env_nested_delimiter", "").join(str(l).upper() for l in error["loc"])
+                env_prefix = self.model_config.get("env_prefix", "")
+                delimiter = self.model_config.get("env_nested_delimiter", "") or ""
+                env_var = env_prefix + delimiter.join(str(l).upper() for l in error["loc"])
+
                 kwarg = error["loc"][0]
                 if kwarg in kwargs:
-                    value = kwargs[kwarg]
+                    value = kwargs[str(kwarg)]
                     msg = f"- Error in init kwarg {e.title}({error['loc'][0]}={value})\n    {msg}"
                 elif env_var in os.environ:
                     msg = f"- Error in environment variable {env_var}={input_value}\n    {msg}"

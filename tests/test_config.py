@@ -260,7 +260,7 @@ def config_error_plugin(tmp_path: Path, monkeypatch: MonkeyPatch) -> ENTRY_POINT
             field = [0, 1, 2]
         """)
         )
-        _ = DerivedSettings(not_required=3)
+        _ = DerivedSettings(not_required=3)  # type: ignore
 
     return ("config-error", "config-error-plugin:app", plugin)
 
