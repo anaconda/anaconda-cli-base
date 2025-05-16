@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
 
-from anaconda_cli_base.config import AnacondaBaseSettings
+from anaconda_cli_base.config import AnacondaBaseSettings, AnacondaConfigTomlSyntaxError
 
 
 class Nested(BaseModel):
@@ -193,3 +193,24 @@ def test_nested_plugins(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("ANACONDA_DERIVED_EXTRAS_VALUE", "env")
     config = ExtrasConfig()
     assert config.value == "env"
+
+
+def test_settings_toml_error(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    config_file = tmp_path / "config.toml"
+    monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
+
+    config_file.write_text(
+        dedent("""\
+        [plugin.derived]
+        foo = ["a"
+        [plugin.derived.nested]
+        field = "toml"
+    """)
+    )
+
+    with pytest.raises(AnacondaConfigTomlSyntaxError) as excinfo:
+        _ = DerivedSettings()
+
+    assert "/config.toml: Unclosed array (at line 3, column 1)" in excinfo.value.args[0]

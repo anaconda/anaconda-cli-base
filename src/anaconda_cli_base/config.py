@@ -1,4 +1,5 @@
 import os
+import sys
 
 from functools import cached_property
 from pathlib import Path
@@ -13,6 +14,11 @@ from pydantic_settings import PydanticBaseSettingsSource
 from pydantic_settings import PyprojectTomlConfigSettingsSource
 from pydantic_settings import SettingsConfigDict
 
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
 
 def anaconda_config_path() -> Path:
     return Path(
@@ -23,6 +29,18 @@ def anaconda_config_path() -> Path:
         )
     )
 
+
+class AnacondaConfigTomlSyntaxError(tomllib.TOMLDecodeError):
+    pass
+
+
+class AnacondaConfigTomlSettingsSource(PyprojectTomlConfigSettingsSource):
+    def _read_file(self, file_path: Path) -> dict[str, Any]:
+        try:
+            return super()._read_file(file_path)
+        except tomllib.TOMLDecodeError as e:
+            arg = f"{anaconda_config_path()}: {e.args[0]}"
+            raise AnacondaConfigTomlSyntaxError(arg)
 
 class AnacondaBaseSettings(BaseSettings):
 
@@ -71,5 +89,5 @@ class AnacondaBaseSettings(BaseSettings):
             env_settings,
             dotenv_settings,
             file_secret_settings,
-            PyprojectTomlConfigSettingsSource(settings_cls, anaconda_config_path()),
+            AnacondaConfigTomlSettingsSource(settings_cls, anaconda_config_path()),
         )
