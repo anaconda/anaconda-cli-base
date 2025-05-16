@@ -1,9 +1,20 @@
+import sys
 from collections import defaultdict
 from typing import Callable, Dict, Type
 
 from anaconda_cli_base.console import console
 
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
 ErrorHandlingCallback = Callable[[Exception], int]
+
+class AnacondaConfigTomlSyntaxError(tomllib.TOMLDecodeError): ...
+
+
+class AnacondaConfigValidationError(ValueError): ...
 
 
 def catch_all(e: Exception) -> int:

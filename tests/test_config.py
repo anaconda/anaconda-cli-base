@@ -10,8 +10,8 @@ from pytest_mock import MockerFixture
 
 import anaconda_cli_base.cli
 from anaconda_cli_base.config import AnacondaBaseSettings
-from anaconda_cli_base.config import AnacondaConfigTomlSyntaxError
-from anaconda_cli_base.config import AnacondaConfigValidationError
+from anaconda_cli_base.exceptions import AnacondaConfigTomlSyntaxError
+from anaconda_cli_base.exceptions import AnacondaConfigValidationError
 from anaconda_cli_base.plugins import load_registered_subcommands
 
 from .conftest import CLIInvoker

@@ -15,6 +15,8 @@ from pydantic_settings import PydanticBaseSettingsSource
 from pydantic_settings import PyprojectTomlConfigSettingsSource
 from pydantic_settings import SettingsConfigDict
 
+from .exceptions import AnacondaConfigTomlSyntaxError, AnacondaConfigValidationError
+
 if sys.version_info >= (3, 11):
     import tomllib
 else:
@@ -29,14 +31,6 @@ def anaconda_config_path() -> Path:
             )
         )
     )
-
-
-class AnacondaConfigTomlSyntaxError(tomllib.TOMLDecodeError):
-    pass
-
-
-class AnacondaConfigValidationError(ValueError):
-    pass
 
 
 class AnacondaConfigTomlSettingsSource(PyprojectTomlConfigSettingsSource):
