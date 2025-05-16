@@ -1,17 +1,27 @@
 import os
+import sys
 
 from functools import cached_property
 from pathlib import Path
 from typing import Any
+from typing import Dict
 from typing import Optional
 from typing import Tuple
 from typing import Type
 from typing import Union
 
+from pydantic import ValidationError
 from pydantic_settings import BaseSettings
 from pydantic_settings import PydanticBaseSettingsSource
 from pydantic_settings import PyprojectTomlConfigSettingsSource
 from pydantic_settings import SettingsConfigDict
+
+from .exceptions import AnacondaConfigTomlSyntaxError, AnacondaConfigValidationError
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 
 def anaconda_config_path() -> Path:
@@ -23,6 +33,14 @@ def anaconda_config_path() -> Path:
         )
     )
 
+
+class AnacondaConfigTomlSettingsSource(PyprojectTomlConfigSettingsSource):
+    def _read_file(self, file_path: Path) -> Dict[str, Any]:
+        try:
+            return super()._read_file(file_path)
+        except tomllib.TOMLDecodeError as e:
+            arg = f"{anaconda_config_path()}: {e.args[0]}"
+            raise AnacondaConfigTomlSyntaxError(arg)
 
 class AnacondaBaseSettings(BaseSettings):
 
@@ -57,6 +75,36 @@ class AnacondaBaseSettings(BaseSettings):
 
         return super().__init_subclass__(**kwargs)
 
+    def __init__(self, **kwargs: Any) -> None:
+        try:
+            super().__init__(**kwargs)
+        except ValidationError as e:
+            errors = []
+            for error in e.errors():
+                input_value = error["input"]
+                msg = error["msg"]
+
+                env_prefix = self.model_config.get("env_prefix", "")
+                delimiter = self.model_config.get("env_nested_delimiter", "") or ""
+                env_var = env_prefix + delimiter.join(str(l).upper() for l in error["loc"])
+
+                kwarg = error["loc"][0]
+                if kwarg in kwargs:
+                    value = kwargs[str(kwarg)]
+                    msg = f"- Error in init kwarg {e.title}({error['loc'][0]}={value})\n    {msg}"
+                elif env_var in os.environ:
+                    msg = f"- Error in environment variable {env_var}={input_value}\n    {msg}"
+                else:
+                    table_header = ".".join(self.model_config.get("pyproject_toml_table_header", []))
+                    key = ".".join(str(l) for l in error["loc"])
+                    msg = f"- Error in {anaconda_config_path()} in [{table_header}] for {key} = {input_value}\n    {msg}"
+
+                errors.append(msg)
+
+            message = "\n" + "\n".join(errors)
+
+            raise AnacondaConfigValidationError(message)
+
     @classmethod
     def settings_customise_sources(
         cls,
@@ -71,5 +119,5 @@ class AnacondaBaseSettings(BaseSettings):
             env_settings,
             dotenv_settings,
             file_secret_settings,
-            PyprojectTomlConfigSettingsSource(settings_cls, anaconda_config_path()),
+            AnacondaConfigTomlSettingsSource(settings_cls, anaconda_config_path()),
         )

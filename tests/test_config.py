@@ -1,15 +1,22 @@
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional
+from typing import Optional, Tuple, cast
 
 import pytest
+import typer
 from pydantic import BaseModel
-from pydantic import ValidationError
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
 
+import anaconda_cli_base.cli
 from anaconda_cli_base.config import AnacondaBaseSettings
+from anaconda_cli_base.exceptions import AnacondaConfigTomlSyntaxError
+from anaconda_cli_base.exceptions import AnacondaConfigValidationError
+from anaconda_cli_base.plugins import load_registered_subcommands
 
+from .conftest import CLIInvoker
+
+ENTRY_POINT_TUPLE = Tuple[str, str, typer.Typer]
 
 class Nested(BaseModel):
     field: str = "default"
@@ -19,6 +26,7 @@ class DerivedSettings(AnacondaBaseSettings, plugin_name="derived"):
     foo: str = "default"
     nested: Nested = Nested()
     optional: Optional[int] = None
+    not_required: Optional[str] = None
 
 
 def test_settings_plugin_name_str() -> None:
@@ -126,27 +134,6 @@ def test_settings_priority(
     assert config.nested.field == "init"
 
 
-def test_settings_validation_failed(
-    mocker: MockerFixture, monkeypatch: MonkeyPatch, tmp_path: Path
-) -> None:
-    config_file = tmp_path / "config.toml"
-    monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
-
-    dotenv = tmp_path / ".env"
-    mocker.patch.dict(DerivedSettings.model_config, {"env_file": dotenv})
-
-    config_file.write_text(
-        dedent("""\
-        [plugin.derived]
-        foo = 0
-        [plugin.derived.nested]
-        field = "toml"
-    """)
-    )
-    with pytest.raises(ValidationError):
-        _ = DerivedSettings()
-
-
 def test_subclass(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     config_file = tmp_path / "config.toml"
     monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
@@ -193,3 +180,109 @@ def test_nested_plugins(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("ANACONDA_DERIVED_EXTRAS_VALUE", "env")
     config = ExtrasConfig()
     assert config.value == "env"
+
+
+def test_settings_toml_error(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    config_file = tmp_path / "config.toml"
+    monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
+
+    config_file.write_text(
+        dedent("""\
+        [plugin.derived]
+        foo = ["a"
+        [plugin.derived.nested]
+        field = "toml"
+    """)
+    )
+
+    with pytest.raises(AnacondaConfigTomlSyntaxError) as excinfo:
+        _ = DerivedSettings()
+
+    assert "/config.toml: Unclosed array (at line 3, column 1)" in excinfo.value.args[0]
+
+
+def test_settings_validation_error(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    config_file = tmp_path / "config.toml"
+    monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
+    monkeypatch.setenv("ANACONDA_DERIVED_OPTIONAL", "not-an-integer")
+
+    config_file.write_text(
+        dedent("""\
+        [plugin.derived]
+        foo = 1
+        [plugin.derived.nested]
+        field = [0, 1, 2]
+    """)
+    )
+
+    with pytest.raises(AnacondaConfigValidationError) as excinfo:
+        _ = DerivedSettings(not_required=3)  # type: ignore
+
+    message = excinfo.value.args[0]
+    assert "/config.toml in [plugin.derived] for foo = 1" in message
+    assert "/config.toml in [plugin.derived] for nested.field = [0, 1, 2]" in message
+    assert "Error in environment variable ANACONDA_DERIVED_OPTIONAL=not-an-integer" in message
+    assert "Error in init kwarg DerivedSettings(not_required=3)" in message
+
+
+@pytest.fixture
+def config_error_plugin(tmp_path: Path, monkeypatch: MonkeyPatch) -> ENTRY_POINT_TUPLE:
+    config_file = tmp_path / "config.toml"
+    monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
+
+    plugin = typer.Typer(name="error", add_completion=False, no_args_is_help=True)
+
+    @plugin.command("syntax-error")
+    def syntax_error() -> None:
+        config_file.write_text(
+            dedent("""\
+            [plugin.derived]
+            foo = ["a"
+            [plugin.derived.nested]
+            field = "toml"
+        """)
+        )
+        _ = DerivedSettings()
+
+    @plugin.command("validation-error")
+    def validation_error() -> None:
+        monkeypatch.setenv("ANACONDA_DERIVED_OPTIONAL", "not-an-integer")
+
+        config_file.write_text(
+            dedent("""\
+            [plugin.derived]
+            foo = 1
+            [plugin.derived.nested]
+            field = [0, 1, 2]
+        """)
+        )
+        _ = DerivedSettings(not_required=3)  # type: ignore
+
+    return ("config-error", "config-error-plugin:app", plugin)
+
+
+def test_error_handled(
+    invoke_cli: CLIInvoker,
+    config_error_plugin: ENTRY_POINT_TUPLE,
+    mocker: MockerFixture,
+) -> None:
+    plugins = [config_error_plugin]
+    mocker.patch(
+        "anaconda_cli_base.plugins._load_entry_points_for_group", return_value=plugins
+    )
+    load_registered_subcommands(cast(typer.Typer, anaconda_cli_base.cli.app))
+
+    result = invoke_cli(["config-error", "syntax-error"])
+    assert result.exit_code == 1
+    assert "/config.toml: Unclosed array (at line 3, column 1)" in result.stdout
+
+    result = invoke_cli(["config-error", "validation-error"])
+    assert result.exit_code == 1
+    assert "/config.toml in [plugin.derived] for foo = 1" in result.stdout
+    assert "/config.toml in [plugin.derived] for nested.field = [0, 1, 2]" in result.stdout
+    assert "Error in environment variable ANACONDA_DERIVED_OPTIONAL=not-an-integer" in result.stdout
+    assert "Error in init kwarg DerivedSettings(not_required=3)" in result.stdout
