@@ -7,7 +7,8 @@ ErrorHandlingCallback = Callable[[Exception], int]
 
 
 def catch_all(e: Exception) -> int:
-    console.print(f"[bold][red]{e.__class__.__name__}:[/bold][/red] {e}")
+    console.print(f"[bold][red]{e.__class__.__name__}:[/bold][/red] ", end="")
+    console.print(e, markup=False)
     return 1
 
 
