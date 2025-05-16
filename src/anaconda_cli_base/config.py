@@ -9,6 +9,7 @@ from typing import Tuple
 from typing import Type
 from typing import Union
 
+from pydantic import ValidationError
 from pydantic_settings import BaseSettings
 from pydantic_settings import PydanticBaseSettingsSource
 from pydantic_settings import PyprojectTomlConfigSettingsSource
@@ -31,6 +32,10 @@ def anaconda_config_path() -> Path:
 
 
 class AnacondaConfigTomlSyntaxError(tomllib.TOMLDecodeError):
+    pass
+
+
+class AnacondaConfigValidationError(ValueError):
     pass
 
 
@@ -74,6 +79,33 @@ class AnacondaBaseSettings(BaseSettings):
         )
 
         return super().__init_subclass__(**kwargs)
+
+    def __init__(self, **kwargs):
+        try:
+            super().__init__(**kwargs)
+        except ValidationError as e:
+            errors = []
+            for error in e.errors():
+                input_value = error["input"]
+                msg = error["msg"]
+
+                env_var = self.model_config.get("env_prefix", "") + self.model_config.get("env_nested_delimiter", "").join(str(l).upper() for l in error["loc"])
+                kwarg = error["loc"][0]
+                if kwarg in kwargs:
+                    value = kwargs[kwarg]
+                    msg = f"- Error in {e.title}({error['loc'][0]}={value})\n    {msg}"
+                elif env_var in os.environ:
+                    msg = f"- Error in environment variable {env_var}={input_value}\n    {msg}"
+                else:
+                    table_header = ".".join(self.model_config.get("pyproject_toml_table_header", []))
+                    key = ".".join(str(l) for l in error["loc"])
+                    msg = f"- Error in {anaconda_config_path()} in [{table_header}] for {key} = {input_value}\n    {msg}"
+
+                errors.append(msg)
+
+            message = "\n".join(errors)
+
+            raise AnacondaConfigValidationError(message)
 
     @classmethod
     def settings_customise_sources(

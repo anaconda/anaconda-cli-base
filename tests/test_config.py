@@ -8,7 +8,9 @@ from pydantic import ValidationError
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
 
-from anaconda_cli_base.config import AnacondaBaseSettings, AnacondaConfigTomlSyntaxError
+from anaconda_cli_base.config import AnacondaBaseSettings
+from anaconda_cli_base.config import AnacondaConfigTomlSyntaxError
+from anaconda_cli_base.config import AnacondaConfigValidationError
 
 
 class Nested(BaseModel):
@@ -19,6 +21,7 @@ class DerivedSettings(AnacondaBaseSettings, plugin_name="derived"):
     foo: str = "default"
     nested: Nested = Nested()
     optional: Optional[int] = None
+    not_required: Optional[str] = None
 
 
 def test_settings_plugin_name_str() -> None:
@@ -214,3 +217,29 @@ def test_settings_toml_error(
         _ = DerivedSettings()
 
     assert "/config.toml: Unclosed array (at line 3, column 1)" in excinfo.value.args[0]
+
+
+def test_settings_validation_error(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    config_file = tmp_path / "config.toml"
+    monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
+    monkeypatch.setenv("ANACONDA_DERIVED_OPTIONAL", "not-an-integer")
+
+    config_file.write_text(
+        dedent("""\
+        [plugin.derived]
+        foo = 1
+        [plugin.derived.nested]
+        field = [0, 1, 2]
+    """)
+    )
+
+    with pytest.raises(AnacondaConfigValidationError) as excinfo:
+        _ = DerivedSettings(not_required=3)  # type: ignore
+
+    message = excinfo.value.args[0]
+    assert "/config.toml in [plugin.derived] for foo = 1" in message
+    assert "/config.toml in [plugin.derived] for nested.field = [0, 1, 2]" in message
+    assert "Error in environment variable ANACONDA_DERIVED_OPTIONAL=not-an-integer" in message
+    assert "Error in DerivedSettings(not_required=3)" in message
