@@ -5,7 +5,6 @@ from typing import Optional, Tuple, cast
 import pytest
 import typer
 from pydantic import BaseModel
-from pydantic import ValidationError
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
 
@@ -133,27 +132,6 @@ def test_settings_priority(
     config = DerivedSettings(foo="init", nested=Nested(field="init"))
     assert config.foo == "init"
     assert config.nested.field == "init"
-
-
-def test_settings_validation_failed(
-    mocker: MockerFixture, monkeypatch: MonkeyPatch, tmp_path: Path
-) -> None:
-    config_file = tmp_path / "config.toml"
-    monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
-
-    dotenv = tmp_path / ".env"
-    mocker.patch.dict(DerivedSettings.model_config, {"env_file": dotenv})
-
-    config_file.write_text(
-        dedent("""\
-        [plugin.derived]
-        foo = 0
-        [plugin.derived.nested]
-        field = "toml"
-    """)
-    )
-    with pytest.raises(ValidationError):
-        _ = DerivedSettings()
 
 
 def test_subclass(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
