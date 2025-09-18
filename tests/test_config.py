@@ -293,9 +293,15 @@ def test_root_level_table(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
 
     class RootLevelTable(AnacondaBaseSettings, plugin_name=None):
+        foo: str = "bar"
         table: Optional[Dict[str, str]] = None
 
-    config_file.write_text("[table]\nkey = 'value'")
+    config_file.write_text(dedent("""\
+        foo = "baz"
+        [table]
+        key = "value"
+    """))
 
     config = RootLevelTable()
     assert config.table == {"key": "value"}
+    assert config.foo == "baz"
