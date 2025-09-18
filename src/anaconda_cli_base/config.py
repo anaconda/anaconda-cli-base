@@ -53,7 +53,7 @@ class AnacondaBaseSettings(BaseSettings):
         if plugin_name is None:
             pyproject_toml_table_header = ()
             env_prefix = base_env_prefix
-        if isinstance(plugin_name, tuple):
+        elif isinstance(plugin_name, tuple):
             if not all(isinstance(entry, str) for entry in plugin_name):
                 raise ValueError(f"plugin_name={plugin_name} error: All values must be strings.")
             pyproject_toml_table_header = ("plugin", *plugin_name)

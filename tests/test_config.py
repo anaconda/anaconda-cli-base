@@ -1,6 +1,6 @@
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional, Tuple, cast
+from typing import Optional, Tuple, cast, Dict
 
 import pytest
 import typer
@@ -286,3 +286,16 @@ def test_error_handled(
     assert "/config.toml in [plugin.derived] for nested.field = [0, 1, 2]" in result.stdout
     assert "Error in environment variable ANACONDA_DERIVED_OPTIONAL=not-an-integer" in result.stdout
     assert "Error in init kwarg DerivedSettings(not_required=3)" in result.stdout
+
+
+def test_root_level_table(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+    config_file = tmp_path / "config.toml"
+    monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
+
+    class RootLevelTable(AnacondaBaseSettings, plugin_name=None):
+        table: Optional[Dict[str, str]] = None
+
+    config_file.write_text("[table]\nkey = 'value'")
+
+    config = RootLevelTable()
+    assert config.table == {"key": "value"}
