@@ -18,6 +18,7 @@ from .conftest import CLIInvoker
 
 ENTRY_POINT_TUPLE = Tuple[str, str, typer.Typer]
 
+
 class Nested(BaseModel):
     field: str = "default"
 
@@ -48,21 +49,17 @@ def test_settings_plugin_name_tuple() -> None:
     env_prefix = TupleName.model_config.get("env_prefix", "")
     assert env_prefix == "ANACONDA_NESTED_SETTINGS_"
 
-    table_header = TupleName.model_config.get(
-        "pyproject_toml_table_header", tuple()
-    )
-    assert table_header == (
-        "plugin",
-        "nested",
-        "settings"
-    )
+    table_header = TupleName.model_config.get("pyproject_toml_table_header", tuple())
+    assert table_header == ("plugin", "nested", "settings")
 
 
 def test_settings_plugin_name_error() -> None:
     with pytest.raises(ValueError):
+
         class FailList(DerivedSettings, plugin_name=["nested", "settings"]): ...
 
     with pytest.raises(ValueError):
+
         class FailType(DerivedSettings, plugin_name=["nested", 0]): ...
 
 
@@ -139,6 +136,7 @@ def test_subclass(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
 
     class Subclass(DerivedSettings, plugin_name="subclass"): ...
+
     assert Subclass.model_config.get("env_prefix", "") == "ANACONDA_SUBCLASS_"
 
     config_file.write_text(
@@ -182,9 +180,7 @@ def test_nested_plugins(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     assert config.value == "env"
 
 
-def test_settings_toml_error(
-    monkeypatch: MonkeyPatch, tmp_path: Path
-) -> None:
+def test_settings_toml_error(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     config_file = tmp_path / "config.toml"
     monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
 
@@ -203,9 +199,7 @@ def test_settings_toml_error(
     assert "/config.toml: Unclosed array (at line 3, column 1)" in excinfo.value.args[0]
 
 
-def test_settings_validation_error(
-    monkeypatch: MonkeyPatch, tmp_path: Path
-) -> None:
+def test_settings_validation_error(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     config_file = tmp_path / "config.toml"
     monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
     monkeypatch.setenv("ANACONDA_DERIVED_OPTIONAL", "not-an-integer")
@@ -225,7 +219,10 @@ def test_settings_validation_error(
     message = excinfo.value.args[0]
     assert "/config.toml in [plugin.derived] for foo = 1" in message
     assert "/config.toml in [plugin.derived] for nested.field = [0, 1, 2]" in message
-    assert "Error in environment variable ANACONDA_DERIVED_OPTIONAL=not-an-integer" in message
+    assert (
+        "Error in environment variable ANACONDA_DERIVED_OPTIONAL=not-an-integer"
+        in message
+    )
     assert "Error in init kwarg DerivedSettings(not_required=3)" in message
 
 
@@ -283,8 +280,13 @@ def test_error_handled(
     result = invoke_cli(["config-error", "validation-error"])
     assert result.exit_code == 1
     assert "/config.toml in [plugin.derived] for foo = 1" in result.stdout
-    assert "/config.toml in [plugin.derived] for nested.field = [0, 1, 2]" in result.stdout
-    assert "Error in environment variable ANACONDA_DERIVED_OPTIONAL=not-an-integer" in result.stdout
+    assert (
+        "/config.toml in [plugin.derived] for nested.field = [0, 1, 2]" in result.stdout
+    )
+    assert (
+        "Error in environment variable ANACONDA_DERIVED_OPTIONAL=not-an-integer"
+        in result.stdout
+    )
     assert "Error in init kwarg DerivedSettings(not_required=3)" in result.stdout
 
 
@@ -296,11 +298,13 @@ def test_root_level_table(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
         foo: str = "bar"
         table: Optional[Dict[str, str]] = None
 
-    config_file.write_text(dedent("""\
+    config_file.write_text(
+        dedent("""\
         foo = "baz"
         [table]
         key = "value"
-    """))
+    """)
+    )
 
     config = RootLevelTable()
     assert config.table == {"key": "value"}

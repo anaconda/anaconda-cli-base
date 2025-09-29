@@ -11,6 +11,7 @@ else:
 
 ErrorHandlingCallback = Callable[[Exception], int]
 
+
 class AnacondaConfigTomlSyntaxError(tomllib.TOMLDecodeError): ...
 
 

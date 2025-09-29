@@ -42,8 +42,8 @@ class AnacondaConfigTomlSettingsSource(PyprojectTomlConfigSettingsSource):
             arg = f"{anaconda_config_path()}: {e.args[0]}"
             raise AnacondaConfigTomlSyntaxError(arg)
 
-class AnacondaBaseSettings(BaseSettings):
 
+class AnacondaBaseSettings(BaseSettings):
     def __init_subclass__(
         cls, plugin_name: Optional[Union[str, tuple]] = None, **kwargs: Any
     ) -> None:
@@ -55,14 +55,18 @@ class AnacondaBaseSettings(BaseSettings):
             env_prefix = base_env_prefix
         elif isinstance(plugin_name, tuple):
             if not all(isinstance(entry, str) for entry in plugin_name):
-                raise ValueError(f"plugin_name={plugin_name} error: All values must be strings.")
+                raise ValueError(
+                    f"plugin_name={plugin_name} error: All values must be strings."
+                )
             pyproject_toml_table_header = ("plugin", *plugin_name)
             env_prefix = base_env_prefix + "_".join(plugin_name).upper() + "_"
         elif isinstance(plugin_name, str):
             pyproject_toml_table_header = ("plugin", plugin_name)
             env_prefix = base_env_prefix + f"{plugin_name.upper()}_"
         else:
-            raise ValueError(f"plugin_name={plugin_name} is not supported. It must be either a str or tuple.")
+            raise ValueError(
+                f"plugin_name={plugin_name} is not supported. It must be either a str or tuple."
+            )
 
         cls.model_config = SettingsConfigDict(
             env_file=".env",
@@ -86,7 +90,9 @@ class AnacondaBaseSettings(BaseSettings):
 
                 env_prefix = self.model_config.get("env_prefix", "")
                 delimiter = self.model_config.get("env_nested_delimiter", "") or ""
-                env_var = env_prefix + delimiter.join(str(l).upper() for l in error["loc"])
+                env_var = env_prefix + delimiter.join(
+                    str(loc).upper() for loc in error["loc"]
+                )
 
                 kwarg = error["loc"][0]
                 if kwarg in kwargs:
@@ -95,8 +101,10 @@ class AnacondaBaseSettings(BaseSettings):
                 elif env_var in os.environ:
                     msg = f"- Error in environment variable {env_var}={input_value}\n    {msg}"
                 else:
-                    table_header = ".".join(self.model_config.get("pyproject_toml_table_header", []))
-                    key = ".".join(str(l) for l in error["loc"])
+                    table_header = ".".join(
+                        self.model_config.get("pyproject_toml_table_header", [])
+                    )
+                    key = ".".join(str(loc) for loc in error["loc"])
                     msg = f"- Error in {anaconda_config_path()} in [{table_header}] for {key} = {input_value}\n    {msg}"
 
                 errors.append(msg)
