@@ -91,7 +91,7 @@ class AnacondaBaseSettings(BaseSettings):
                 env_prefix = self.model_config.get("env_prefix", "")
                 delimiter = self.model_config.get("env_nested_delimiter", "") or ""
                 env_var = env_prefix + delimiter.join(
-                    str(l).upper() for l in error["loc"]
+                    str(loc).upper() for loc in error["loc"]
                 )
 
                 kwarg = error["loc"][0]
@@ -104,7 +104,7 @@ class AnacondaBaseSettings(BaseSettings):
                     table_header = ".".join(
                         self.model_config.get("pyproject_toml_table_header", [])
                     )
-                    key = ".".join(str(l) for l in error["loc"])
+                    key = ".".join(str(loc) for loc in error["loc"])
                     msg = f"- Error in {anaconda_config_path()} in [{table_header}] for {key} = {input_value}\n    {msg}"
 
                 errors.append(msg)
