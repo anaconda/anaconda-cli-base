@@ -24,7 +24,13 @@ else:
     import tomli as tomllib
 
 
-DOCKER_SECRETS_DIR = "/run/secrets"
+def anaconda_secrets_dir() -> Optional[Path]:
+    path = Path(
+        os.path.expandvars(
+            os.path.expanduser(os.getenv("ANACONDA_SECRETS_DIR", "/run/secrets"))
+        )
+    )
+    return path if os.path.isdir(path) else None
 
 
 def anaconda_config_path() -> Path:
@@ -77,11 +83,9 @@ class AnacondaBaseSettings(BaseSettings):
             env_prefix=env_prefix,
             env_nested_delimiter="__",
             extra="ignore",
-            ignored_types=(cached_property,)
+            ignored_types=(cached_property,),
+            secrets_dir=anaconda_secrets_dir(),
         )
-
-        if os.path.isdir(DOCKER_SECRETS_DIR):
-            cls.model_config["secrets_dir"] = DOCKER_SECRETS_DIR
 
         return super().__init_subclass__(**kwargs)
 
