@@ -70,7 +70,6 @@ def test_settings_priority(
     config_file = tmp_path / "config.toml"
     monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
 
-    assert DerivedSettings.model_config.get("secrets_dir")
     monkeypatch.setitem(DerivedSettings.model_config, "secrets_dir", tmp_path)
     secret_file = tmp_path / "anaconda_derived_docker_test"
 

@@ -76,6 +76,8 @@ following priority from lowest to highest.
 1. default value in the subclass of `AnacondaBaseSettings`
 1. Global config file at ~/.anaconda/config.toml
 1. `ANACONDA_<PLUGIN-NAME>_<FIELD>` variables defined in the .env file in your working directory
+1. A file named `/run/secrets/ANACONDA_<PLUGIN-NAME>_<FIELD>`, usually populated by a mounted
+   [Docker secret](https://docs.docker.com/engine/swarm/secrets/)
 1. `ANACONDA_<PLUGIN-NAME>_<FIELD>` env variables set in your shell or on command invocation
 1. value passed as kwarg when using the config subclass directly
 
