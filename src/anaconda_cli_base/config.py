@@ -30,7 +30,7 @@ def anaconda_secrets_dir() -> Optional[Path]:
             os.path.expanduser(os.getenv("ANACONDA_SECRETS_DIR", "/run/secrets"))
         )
     )
-    return path if os.path.isdir(path) else None
+    return path if path.is_dir() else None
 
 
 def anaconda_config_path() -> Path:
