@@ -28,6 +28,7 @@ class DerivedSettings(AnacondaBaseSettings, plugin_name="derived"):
     nested: Nested = Nested()
     optional: Optional[int] = None
     not_required: Optional[str] = None
+    docker_test: Optional[str] = "default"
 
 
 def test_settings_plugin_name_str() -> None:
@@ -69,17 +70,23 @@ def test_settings_priority(
     config_file = tmp_path / "config.toml"
     monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
 
+    assert DerivedSettings.model_config.get("secrets_dir")
+    monkeypatch.setitem(DerivedSettings.model_config, "secrets_dir", tmp_path)
+    secret_file = tmp_path / "anaconda_derived_docker_test"
+
     dotenv = tmp_path / ".env"
     mocker.patch.dict(DerivedSettings.model_config, {"env_file": dotenv})
 
     config = DerivedSettings()
     assert config.foo == "default"
     assert config.nested.field == "default"
+    assert config.docker_test == "default"
 
     config_file.write_text(
         dedent("""\
         [plugin.derived]
         foo = "toml"
+        docker_test = "toml"
         [plugin.derived.nested]
         field = "toml"
     """)
@@ -87,48 +94,64 @@ def test_settings_priority(
     config = DerivedSettings()
     assert config.foo == "toml"
     assert config.nested.field == "toml"
+    assert config.docker_test == "toml"
 
     config_file.write_text(
         dedent("""\
         [plugin.derived]
         foo = "toml"
+        docker_test = "toml"
         nested = { field = "toml_inline" }
     """)
     )
     config = DerivedSettings()
     assert config.foo == "toml"
     assert config.nested.field == "toml_inline"
+    assert config.docker_test == "toml"
 
     config_file.write_text(
         dedent("""\
         [plugin.derived]
         foo = "toml"
         nested.field = "toml_dot"
+        docker_test = "toml"
     """)
     )
     config = DerivedSettings()
     assert config.foo == "toml"
     assert config.nested.field == "toml_dot"
+    assert config.docker_test == "toml"
 
     dotenv.write_text(
         dedent("""\
         ANACONDA_DERIVED_FOO=dotenv
         ANACONDA_DERIVED_NESTED__FIELD=dotenv
+        ANACONDA_DERIVED_DOCKER_TEST=dotenv
     """)
     )
     config = DerivedSettings()
     assert config.foo == "dotenv"
     assert config.nested.field == "dotenv"
+    assert config.docker_test == "dotenv"
+
+    secret_file.write_text("secret")
+    config = DerivedSettings()
+    assert config.docker_test == "secret"
 
     monkeypatch.setenv("ANACONDA_DERIVED_FOO", "env")
     monkeypatch.setenv("ANACONDA_DERIVED_NESTED__FIELD", "env")
+    monkeypatch.setenv("ANACONDA_DERIVED_DOCKER_TEST", "env")
     config = DerivedSettings()
     assert config.foo == "env"
     assert config.nested.field == "env"
+    assert config.docker_test == "env"
 
-    config = DerivedSettings(foo="init", nested=Nested(field="init"))
+    config = DerivedSettings(
+        foo="init", nested=Nested(field="init"), docker_test="init"
+    )
     assert config.foo == "init"
     assert config.nested.field == "init"
+    assert config.docker_test == "init"
 
 
 def test_subclass(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:

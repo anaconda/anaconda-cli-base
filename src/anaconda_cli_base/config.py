@@ -75,6 +75,7 @@ class AnacondaBaseSettings(BaseSettings):
             env_nested_delimiter="__",
             extra="ignore",
             ignored_types=(cached_property,),
+            secrets_dir="/run/secrets",
         )
 
         return super().__init_subclass__(**kwargs)
@@ -125,7 +126,7 @@ class AnacondaBaseSettings(BaseSettings):
         return (
             init_settings,
             env_settings,
-            dotenv_settings,
             file_secret_settings,
+            dotenv_settings,
             AnacondaConfigTomlSettingsSource(settings_cls, anaconda_config_path()),
         )
