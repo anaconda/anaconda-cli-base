@@ -76,6 +76,8 @@ following priority from lowest to highest.
 1. default value in the subclass of `AnacondaBaseSettings`
 1. Global config file at ~/.anaconda/config.toml
 1. `ANACONDA_<PLUGIN-NAME>_<FIELD>` variables defined in the .env file in your working directory
+1. A file named `/run/secrets/anaconda_<plugin-name>_<field>`, usually populated by a mounted
+   [Docker secret](https://docs.docker.com/engine/swarm/secrets/)
 1. `ANACONDA_<PLUGIN-NAME>_<FIELD>` env variables set in your shell or on command invocation
 1. value passed as kwarg when using the config subclass directly
 
@@ -83,8 +85,10 @@ Notes:
 
 * `AnacondaBaseSettings` is a subclass of `BaseSettings` from [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/#usage).
 * Nested pydantic models are also supported.
+* Per pydantic defaults, both secret filenames and environment variables
+  may be uppercase or lowercase.
 
-Here's an example subclass
+Here's an example subclass:
 
 ```python
 from anaconda_cli_base.config import AnacondaBaseSettings
