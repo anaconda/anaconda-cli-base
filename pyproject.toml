@@ -5,7 +5,7 @@ requires = ["hatchling", "hatch-vcs>=0.3", "setuptools-scm>=7.1"]
 [project]
 dependencies = [
   "rich",
-  "click <8.2",
+  "click <8.4",
   "readchar",
   "typer",
   "packaging >=23.0",
