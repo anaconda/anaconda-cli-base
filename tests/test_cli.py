@@ -1,12 +1,14 @@
+import importlib
 from functools import partial
 from typing import Tuple
 from typing import Type
 from typing import cast
 from typing import Optional, Sequence, Callable, Generator
+from unittest.mock import MagicMock
 
 import pytest
 import typer
-from unittest.mock import MagicMock
+from packaging import version
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
 
@@ -22,10 +24,20 @@ from .conftest import CLIInvoker
 ENTRY_POINT_TUPLE = Tuple[str, str, typer.Typer]
 
 
+installed_click_version = version.parse(importlib.metadata.version("click"))
+
+# The click version where the exit code changed from 0 to 2 when no_args_is_help is used
+click_version_exit_code_changed = version.parse("8.2.0")
+
+
 @pytest.mark.parametrize(
     "args, expected_exit_code",
     [
-        pytest.param((), 2, id="no-args"),
+        pytest.param(
+            (),
+            2 if installed_click_version >= click_version_exit_code_changed else 0,
+            id="no-args",
+        ),
         pytest.param(("--help",), 0, id="--help"),
         pytest.param(("-h",), 0, id="-h"),
     ],
