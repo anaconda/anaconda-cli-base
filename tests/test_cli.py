@@ -23,11 +23,11 @@ ENTRY_POINT_TUPLE = Tuple[str, str, typer.Typer]
 
 
 @pytest.mark.parametrize(
-    "args",
+    "args, expected_exit_code",
     [
-        pytest.param((), id="no-args"),
-        pytest.param(("--help",), id="--help"),
-        pytest.param(("-h",), id="-h"),
+        pytest.param((), 2, id="no-args"),
+        pytest.param(("--help",), 0, id="--help"),
+        pytest.param(("-h",), 0, id="-h"),
     ],
 )
 @pytest.mark.parametrize(
@@ -39,9 +39,14 @@ ENTRY_POINT_TUPLE = Tuple[str, str, typer.Typer]
         "Show version and exit.",
     ],
 )
-def test_cli_help(invoke_cli: CLIInvoker, args: Tuple[str], expected_text: str) -> None:
+def test_cli_help(
+    invoke_cli: CLIInvoker,
+    args: Tuple[str],
+    expected_exit_code: int,
+    expected_text: str,
+) -> None:
     result = invoke_cli(args)
-    assert result.exit_code == 0
+    assert result.exit_code == expected_exit_code
     assert expected_text in result.stdout
 
 
