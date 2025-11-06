@@ -1,12 +1,14 @@
+import importlib
 from functools import partial
 from typing import Tuple
 from typing import Type
 from typing import cast
 from typing import Optional, Sequence, Callable, Generator
+from unittest.mock import MagicMock
 
 import pytest
 import typer
-from unittest.mock import MagicMock
+from packaging import version
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
 
@@ -22,12 +24,22 @@ from .conftest import CLIInvoker
 ENTRY_POINT_TUPLE = Tuple[str, str, typer.Typer]
 
 
+installed_click_version = version.parse(importlib.metadata.version("click"))
+
+# The click version where the exit code changed from 0 to 2 when no_args_is_help is used
+click_version_exit_code_changed = version.parse("8.2.0")
+
+
 @pytest.mark.parametrize(
-    "args",
+    "args, expected_exit_code",
     [
-        pytest.param((), id="no-args"),
-        pytest.param(("--help",), id="--help"),
-        pytest.param(("-h",), id="-h"),
+        pytest.param(
+            (),
+            2 if installed_click_version >= click_version_exit_code_changed else 0,
+            id="no-args",
+        ),
+        pytest.param(("--help",), 0, id="--help"),
+        pytest.param(("-h",), 0, id="-h"),
     ],
 )
 @pytest.mark.parametrize(
@@ -39,9 +51,14 @@ ENTRY_POINT_TUPLE = Tuple[str, str, typer.Typer]
         "Show version and exit.",
     ],
 )
-def test_cli_help(invoke_cli: CLIInvoker, args: Tuple[str], expected_text: str) -> None:
+def test_cli_help(
+    invoke_cli: CLIInvoker,
+    args: Tuple[str],
+    expected_exit_code: int,
+    expected_text: str,
+) -> None:
     result = invoke_cli(args)
-    assert result.exit_code == 0
+    assert result.exit_code == expected_exit_code
     assert expected_text in result.stdout
 
 
