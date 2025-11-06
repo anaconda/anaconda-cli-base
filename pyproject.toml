@@ -7,7 +7,7 @@ dependencies = [
   "rich",
   "click",
   "readchar",
-  "typer",
+  "typer >=0.17",
   "packaging >=23.0",
   "pydantic-settings >=2.3",
   "tomli"
