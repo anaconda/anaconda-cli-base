@@ -1,5 +1,6 @@
 import importlib
 import itertools
+import os
 import sys
 from functools import partial
 from typing import Tuple
@@ -741,3 +742,17 @@ def test_select_auth_handler_and_args(
     # Assert we select the right handler and parse into the correct arguments
     assert handler == expected_handler
     assert args == expected_args
+
+
+def test_at_handler(
+    invoke_cli: CLIInvoker,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("ANACONDA_DEFAULT_SITE", raising=False)
+
+    result = invoke_cli(["--help"])
+    assert "--at" in result.stdout
+    assert "Select the configured site to use by name or domain" in result.stdout
+
+    result = invoke_cli(["--at", "site-name", "--version"])
+    assert os.getenv("ANACONDA_DEFAULT_SITE") == "site-name"
