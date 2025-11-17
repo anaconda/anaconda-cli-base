@@ -1,4 +1,5 @@
 import importlib
+import os
 from functools import partial
 from typing import Tuple
 from typing import Type
@@ -614,3 +615,17 @@ def test_error_handled(
         "calling counter",
         "RuntimeError: something went wrong",
     ]
+
+
+def test_at_handler(
+    invoke_cli: CLIInvoker,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("ANACONDA_DEFAULT_SITE", raising=False)
+
+    result = invoke_cli(["--help"])
+    assert "--at" in result.stdout
+    assert "Select the configured site to use by name or domain name" in result.stdout
+
+    result = invoke_cli(["--at", "site-name", "--version"])
+    assert os.getenv("ANACONDA_DEFAULT_SITE") == "site-name"
