@@ -10,6 +10,7 @@ from pytest_mock import MockerFixture
 
 import anaconda_cli_base.cli
 from anaconda_cli_base.config import AnacondaBaseSettings
+from anaconda_cli_base.config import AnacondaConfigTomlSettingsSource
 from anaconda_cli_base.exceptions import AnacondaConfigTomlSyntaxError
 from anaconda_cli_base.exceptions import AnacondaConfigValidationError
 from anaconda_cli_base.plugins import load_registered_subcommands
@@ -81,6 +82,7 @@ def test_settings_priority(
     assert config.nested.field == "default"
     assert config.docker_test == "default"
 
+    AnacondaConfigTomlSettingsSource._cache.clear()
     config_file.write_text(
         dedent("""\
         [plugin.derived]
@@ -95,6 +97,7 @@ def test_settings_priority(
     assert config.nested.field == "toml"
     assert config.docker_test == "toml"
 
+    AnacondaConfigTomlSettingsSource._cache.clear()
     config_file.write_text(
         dedent("""\
         [plugin.derived]
@@ -108,6 +111,7 @@ def test_settings_priority(
     assert config.nested.field == "toml_inline"
     assert config.docker_test == "toml"
 
+    AnacondaConfigTomlSettingsSource._cache.clear()
     config_file.write_text(
         dedent("""\
         [plugin.derived]
