@@ -19,6 +19,9 @@ log = logging.getLogger(__name__)
 
 PLUGIN_GROUP_NAME = "anaconda_cli.subcommand"
 
+# Plugins which are available but hidden from help text
+HIDDEN_PLUGINS = ["cloud"]
+
 # Type aliases
 PluginName = str
 ModuleName = str
@@ -189,7 +192,12 @@ def load_registered_subcommands(app: typer.Typer) -> None:
                 subcommand_app, name, auth_handlers, auth_handler_selectors
             )
 
-        app.add_typer(subcommand_app, name=name, rich_help_panel="Plugins")
+        app.add_typer(
+            subcommand_app,
+            name=name,
+            hidden=name in HIDDEN_PLUGINS,
+            rich_help_panel="Plugins",
+        )
 
     if auth_handlers:
         auth_handlers_dropdown = sorted(auth_handler_selectors, key=_sort_selectors)
