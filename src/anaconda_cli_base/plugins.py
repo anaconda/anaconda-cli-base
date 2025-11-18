@@ -64,7 +64,10 @@ def load_registered_subcommands(app: typer.Typer) -> None:
 
     if auth_handlers:
         auth_handlers_dropdown = sorted(auth_handler_selectors)
-        app._load_auth_handlers(  # type: ignore
+
+        from .cli import _load_auth_handlers
+
+        _load_auth_handlers(  # type: ignore
             auth_handlers=auth_handlers, auth_handlers_dropdown=auth_handlers_dropdown
         )
 
