@@ -185,7 +185,9 @@ def main(
 
 
 def _load_auth_handlers(
-    auth_handlers: Dict[str, typer.Typer], auth_handlers_dropdown: List[str]
+    app: typer.Typer,
+    auth_handlers: Dict[str, typer.Typer],
+    auth_handlers_dropdown: List[str],
 ) -> None:
     def validate_at(ctx: typer.Context, _: Any, choice: str) -> str:
         show_help = ctx.params.get("help", False) is True

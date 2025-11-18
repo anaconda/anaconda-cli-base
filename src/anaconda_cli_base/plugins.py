@@ -68,7 +68,9 @@ def load_registered_subcommands(app: typer.Typer) -> None:
         from .cli import _load_auth_handlers
 
         _load_auth_handlers(
-            auth_handlers=auth_handlers, auth_handlers_dropdown=auth_handlers_dropdown
+            app=app,
+            auth_handlers=auth_handlers,
+            auth_handlers_dropdown=auth_handlers_dropdown,
         )
 
         log.debug(
