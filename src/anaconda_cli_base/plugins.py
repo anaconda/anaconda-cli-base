@@ -105,6 +105,45 @@ def _load_auth_handlers(
         decorator(_action)
 
 
+def _load_auth_handler(
+    subcommand_app: typer.Typer,
+    name: PluginName,
+    auth_handlers: Dict[PluginName, typer.Typer],
+    auth_handler_selectors: List[str],
+) -> None:
+    auth_handlers[name] = subcommand_app
+    alias = AUTH_HANDLER_ALIASES.get(name)
+    # this means anaconda-auth is available
+    if name == "auth":
+        try:
+            from anaconda_auth.config import AnacondaAuthSitesConfig
+
+            site_config = AnacondaAuthSitesConfig()
+            for site_name, site in site_config.sites.root.items():
+                if site_name == site.domain:
+                    entry = site_name
+                else:
+                    # entry = f"{site_name} ({site.domain})"
+                    entry = (site_name, f"({site.domain})")  # type: ignore
+
+                auth_handlers[entry] = subcommand_app
+
+                if site_name == site_config.default_site:
+                    # entry = f"{entry} (default)"
+                    entry = (*entry, "(default)")  # type: ignore
+                    auth_handler_selectors.insert(0, entry)  # type: ignore
+                else:
+                    auth_handler_selectors.append(entry)  # type: ignore
+        except ImportError as e:
+            raise e
+    elif name == "cloud":
+        # This plugin alias duplicates anaconda.com, so we skip it
+        pass
+    elif alias:
+        auth_handlers[alias] = subcommand_app
+        auth_handler_selectors.append(alias)
+
+
 def load_registered_subcommands(app: typer.Typer) -> None:
     """Load all subcommands from plugins."""
     subcommand_entry_points = _load_entry_points_for_group(PLUGIN_GROUP_NAME)
@@ -116,37 +155,9 @@ def load_registered_subcommands(app: typer.Typer) -> None:
             subcommand_app.info.no_args_is_help = True
 
         if "login" in [cmd.name for cmd in subcommand_app.registered_commands]:
-            auth_handlers[name] = subcommand_app
-            alias = AUTH_HANDLER_ALIASES.get(name)
-            # this means anaconda-auth is available
-            if name == "auth":
-                try:
-                    from anaconda_auth.config import AnacondaAuthSitesConfig
-
-                    site_config = AnacondaAuthSitesConfig()
-                    for site_name, site in site_config.sites.root.items():
-                        if site_name == site.domain:
-                            entry = site_name
-                        else:
-                            # entry = f"{site_name} ({site.domain})"
-                            entry = (site_name, f"({site.domain})")  # type: ignore
-
-                        auth_handlers[entry] = subcommand_app
-
-                        if site_name == site_config.default_site:
-                            # entry = f"{entry} (default)"
-                            entry = (*entry, "(default)")  # type: ignore
-                            auth_handler_selectors.insert(0, entry)  # type: ignore
-                        else:
-                            auth_handler_selectors.append(entry)  # type: ignore
-                except ImportError as e:
-                    raise e
-            elif name == "cloud":
-                # This plugin alias duplicates anaconda.com, so we skip it
-                pass
-            elif alias:
-                auth_handlers[alias] = subcommand_app
-                auth_handler_selectors.append(alias)
+            _load_auth_handler(
+                subcommand_app, name, auth_handlers, auth_handler_selectors
+            )
 
         app.add_typer(subcommand_app, name=name, rich_help_panel="Plugins")
 
