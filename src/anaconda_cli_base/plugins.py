@@ -33,7 +33,7 @@ def _load_entry_points_for_group(
     group: str,
 ) -> List[Tuple[PluginName, ModuleName, typer.Typer]]:
     # The API was changed in Python 3.10, see https://docs.python.org/3/library/importlib.metadata.html#entry-points
-    found_entry_points: tuple
+    found_entry_points: Tuple
     if version_info.major == 3 and version_info.minor <= 9:
         found_entry_points = cast(
             Tuple[EntryPoint, ...], entry_points().get(group, tuple())
