@@ -212,19 +212,15 @@ def _load_auth_handler(
 
             site_config = AnacondaAuthSitesConfig()
             for site_name, site in site_config.sites.root.items():
-                if site_name == site.domain:
-                    # If the site name is the same as the domain (e.g. anaconda.com)
-                    # don't use parentheses.
-                    entry = site_name
-                else:
-                    entry = f"{site_name} ({site.domain})"
+                display_name = site_name
+                if site_name != site.domain:
+                    display_name += f" ({site.domain})"
 
                 if site_name == site_config.default_site:
-                    auth_handler_selectors.append((site_name, f"{entry} (default)"))
-                else:
-                    auth_handler_selectors.append((site_name, entry))
+                    display_name += " [cyan]\[default][/cyan]"
 
                 auth_handlers[site_name] = subcommand_app
+                auth_handler_selectors.append((site_name, display_name))
 
         except ImportError as e:
             raise e
