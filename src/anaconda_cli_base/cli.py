@@ -236,8 +236,6 @@ def _load_auth_handlers(
         decorator(_action)
 
 
-app._load_auth_handlers = _load_auth_handlers  # type: ignore
-
 disable_plugins = bool(os.getenv("ANACONDA_CLI_DISABLE_PLUGINS"))
 if not disable_plugins:
     load_registered_subcommands(app)
