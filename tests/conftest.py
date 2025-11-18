@@ -72,8 +72,7 @@ def prepare_app() -> Generator[None, None, None]:
 
 
 @pytest.fixture()
-@pytest.mark.usefixtures("tmp_cwd")
-def invoke_cli() -> CLIInvoker:
+def invoke_cli(tmp_cwd: Path) -> CLIInvoker:
     """Returns a function, which can be used to call the CLI from within a temporary directory."""
 
     runner = CliRunner()
