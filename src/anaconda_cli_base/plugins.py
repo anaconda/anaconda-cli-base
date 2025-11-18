@@ -58,7 +58,7 @@ AUTH_HANDLER_ALIASES = {
 }
 
 
-def _load_auth_handlers(
+def _add_auth_actions_to_app(
     app: typer.Typer,
     auth_handlers: Dict[str, typer.Typer],
     auth_handlers_dropdown: List[Tuple[SiteName, SiteDisplayName]],
@@ -201,8 +201,7 @@ def load_registered_subcommands(app: typer.Typer) -> None:
 
     if auth_handlers:
         auth_handlers_dropdown = sorted(auth_handler_selectors, key=_sort_selectors)
-
-        _load_auth_handlers(
+        _add_auth_actions_to_app(
             app=app,
             auth_handlers=auth_handlers,
             auth_handlers_dropdown=auth_handlers_dropdown,
