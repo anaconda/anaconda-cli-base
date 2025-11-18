@@ -232,6 +232,20 @@ def _load_auth_handler(
         auth_handler_selectors.append((alias, alias))
 
 
+def _sort_selectors(
+    item: Tuple[SiteName, SiteDisplayName],
+) -> Tuple[int, Tuple[SiteName, SiteDisplayName]]:
+    name, display_name = item
+    if "default" in display_name:
+        return (0, item)
+    if display_name == "anaconda.com":
+        return (1, item)
+    if display_name == "anaconda.org":
+        return (2, item)
+    else:
+        return (3, item)
+
+
 def load_registered_subcommands(app: typer.Typer) -> None:
     """Load all subcommands from plugins."""
     subcommand_entry_points = _load_entry_points_for_group(PLUGIN_GROUP_NAME)
@@ -255,7 +269,7 @@ def load_registered_subcommands(app: typer.Typer) -> None:
         )
 
     if auth_handlers:
-        auth_handlers_dropdown = sorted(auth_handler_selectors)
+        auth_handlers_dropdown = sorted(auth_handler_selectors, key=_sort_selectors)
 
         _load_auth_handlers(
             app=app,
