@@ -1,11 +1,12 @@
 import logging
+import os
 import warnings
 from importlib.metadata import EntryPoint
 from importlib.metadata import entry_points
 from sys import version_info
-from typing import Any
 from typing import Dict
 from typing import List
+from typing import Optional
 from typing import Tuple
 from typing import cast
 
@@ -59,35 +60,48 @@ def _load_auth_handlers(
     auth_handlers: Dict[str, typer.Typer],
     auth_handlers_dropdown: List[Tuple[SiteName, SiteDisplayName]],
 ) -> None:
-    def validate_at(ctx: typer.Context, _: Any, choice: str) -> str:
-        show_help = ctx.params.get("help", False) is True
-        if show_help:
-            help_str = ctx.get_help()
-            console.print(help_str)
-            raise typer.Exit()
-
+    def validate_at(choice: Optional[str]) -> str:
+        validated_choice: str
         if choice is None:
             if len(auth_handlers_dropdown) > 1:
-                choice = select_from_list("choose destination:", auth_handlers_dropdown)
+                validated_choice = select_from_list(
+                    "choose destination:", auth_handlers_dropdown
+                )
             else:
                 # If only one is available, we don't need a picker
-                (choice,) = auth_handlers_dropdown
+                (default_auth_handler,) = auth_handlers_dropdown
+                # Unpack site name from display_name
+                validated_choice, _ = default_auth_handler
 
         elif choice not in auth_handlers:
             print(
                 f"{choice} is not an allowed value for --at. Use one of {auth_handlers_dropdown}"
             )
             raise typer.Abort()
-        return choice
+        return validated_choice
+
+    # Extract site names for help text
+    site_names = [site_name for site_name, _ in auth_handlers_dropdown]
 
     def _action(
         ctx: typer.Context,
-        at: str = typer.Option(
-            None, callback=validate_at, help=f"Choose from {auth_handlers_dropdown}"
-        ),
-        help: bool = typer.Option(False, "--help"),
+        at: str = typer.Option(None, help=f"Choose from {site_names}", hidden=False),
+        help: bool = typer.Option(False, "--help", "-h"),
     ) -> None:
-        handler = auth_handlers[at]
+        show_help = ctx.params.get("help", False) is True
+        if show_help:
+            help_str = ctx.get_help()
+            console.print(help_str)
+            raise typer.Exit()
+
+        ctx_at = ctx.obj.params.get("at")
+        if ctx_at and at:
+            raise ValueError("--at was specified twice")
+
+        validated_name = validate_at(ctx_at or at)
+        # Set globally to propagate to site config
+        os.environ["ANACONDA_DEFAULT_SITE"] = validated_name
+        handler = auth_handlers[validated_name]
 
         args = ("--help",) if help else ctx.args
         return handler(args=[ctx.command.name, *args], obj=ctx.obj)
