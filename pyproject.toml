@@ -105,6 +105,9 @@ legacy_tox_ini = """
 [tox]
 envlist = py38,py39,py310,py311,py312,mypy
 isolated_build = True
+requires =
+    tox-conda
+    tox-gh-actions
 
 [gh-actions]
 python =
@@ -122,7 +125,7 @@ deps =
     pytest-mock
     typer !=0.12.2
 conda_deps =
-    anaconda-client >=1.12.2
+    anaconda-auth >0.10.0
 conda_channels =
     anaconda-cloud
     defaults
@@ -138,6 +141,10 @@ deps =
     types-requests
     typer
     rich
+conda_deps =
+    anaconda-auth >0.10.0
+conda_channels =
+    anaconda-cloud
 commands = mypy
 """
 
