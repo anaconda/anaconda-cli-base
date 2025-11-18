@@ -4,6 +4,7 @@ import sys
 from functools import cached_property
 from pathlib import Path
 from typing import Any
+from typing import ClassVar
 from typing import Dict
 from typing import Optional
 from typing import Tuple
@@ -44,9 +45,15 @@ def anaconda_config_path() -> Path:
 
 
 class AnacondaConfigTomlSettingsSource(PyprojectTomlConfigSettingsSource):
+    _cache: ClassVar[Dict[Path, Dict[str, Any]]] = {}
+
     def _read_file(self, file_path: Path) -> Dict[str, Any]:
         try:
-            return super()._read_file(file_path)
+            result = self._cache.get(file_path)
+            if result is None:
+                result = super()._read_file(file_path)
+                self._cache[file_path] = result
+            return result
         except tomllib.TOMLDecodeError as e:
             arg = f"{anaconda_config_path()}: {e.args[0]}"
             raise AnacondaConfigTomlSyntaxError(arg)
