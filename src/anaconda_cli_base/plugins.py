@@ -142,6 +142,7 @@ def load_registered_subcommands(app: typer.Typer) -> None:
                 except ImportError as e:
                     raise e
             elif name == "cloud":
+                # This plugin alias duplicates anaconda.com, so we skip it
                 pass
             elif alias:
                 auth_handlers[alias] = subcommand_app
