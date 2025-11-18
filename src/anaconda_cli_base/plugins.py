@@ -119,7 +119,6 @@ def _load_auth_handler(
     implementation when logging in or out.
     """
     auth_handlers[name] = subcommand_app
-    alias = AUTH_HANDLER_ALIASES.get(name)
     # this means anaconda-auth is available
     if name == "auth":
         try:
@@ -142,7 +141,7 @@ def _load_auth_handler(
     elif name == "cloud":
         # This plugin alias duplicates anaconda.com, so we skip it
         pass
-    elif alias:
+    elif alias := AUTH_HANDLER_ALIASES.get(name):
         auth_handlers[alias] = subcommand_app
         auth_handler_selectors.append((alias, alias))
 
