@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 import warnings
 from importlib.metadata import EntryPoint
@@ -96,6 +97,9 @@ def _select_auth_handler_and_args(
         )
         raise typer.Abort()
 
+    # Set globally to propagate to site config
+    os.environ["ANACONDA_DEFAULT_SITE"] = at
+
     handler = auth_handlers[at]
 
     # Consolidate the arguments to pass into the handler function
@@ -154,10 +158,13 @@ def _load_auth_handlers(
 
         return at
 
+    # Extract site names for help text
+    site_names = [site_name for site_name, _ in auth_handlers_dropdown]
+
     def _action(
         ctx: typer.Context,
         at: Optional[str] = typer.Option(
-            None, help=f"Choose from {auth_handlers_dropdown}", callback=handler_help
+            None, help=f"Choose from {site_names}", callback=handler_help
         ),
         # Legacy options from anaconda-client login subcommand
         hostname: Optional[str] = typer.Option(None, hidden=True),
