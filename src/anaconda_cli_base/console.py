@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import List
+from typing import List, Sequence, Tuple, Union
 
 from readchar import key, readkey
 from rich.console import Console
@@ -50,21 +50,38 @@ def _generate_table(header: str, rows: List[str], selected: int) -> Table:
     return table
 
 
-def select_from_list(prompt: str, choices: List[str]) -> str:
+def select_from_list(
+    prompt: str, choices: Sequence[Union[str, Tuple[str, str]]]
+) -> str:
     """Dynamically select from a list of choices, by using the up/down keys."""
     # inspired by https://github.com/Textualize/rich/discussions/1785#discussioncomment-1883808
-    items = choices.copy()
+
+    # Construct two lists, one of values, one for display
+    # Display names are shown to the user, but values is indexed to return the value.
+    display_names: List[str] = []
+    values: List[str] = []
+    for choice in choices:
+        if isinstance(choice, tuple):
+            value, display_name = choice
+        else:
+            value = choice
+            display_name = choice
+
+        display_names.append(display_name)
+        values.append(value)
 
     selected = 0
-    with Live(_generate_table(prompt, items, selected), auto_refresh=False) as live:
+    with Live(
+        _generate_table(prompt, display_names, selected), auto_refresh=False
+    ) as live:
         while keypress := readkey():
             if keypress == key.UP or keypress == "k":
                 selected = max(0, selected - 1)
             if keypress == key.DOWN or keypress == "j":
-                selected = min(len(items) - 1, selected + 1)
+                selected = min(len(display_names) - 1, selected + 1)
             if keypress in ["\n", "\r", key.ENTER]:
                 live.stop()
-                return items[selected]
-            live.update(_generate_table(prompt, items, selected), refresh=True)
+                return values[selected]
+            live.update(_generate_table(prompt, display_names, selected), refresh=True)
 
     raise ValueError("Unreachable")
