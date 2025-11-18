@@ -118,7 +118,32 @@ def load_registered_subcommands(app: typer.Typer) -> None:
         if "login" in [cmd.name for cmd in subcommand_app.registered_commands]:
             auth_handlers[name] = subcommand_app
             alias = AUTH_HANDLER_ALIASES.get(name)
-            if alias:
+            # this means anaconda-auth is available
+            if name == "auth":
+                try:
+                    from anaconda_auth.config import AnacondaAuthSitesConfig
+
+                    site_config = AnacondaAuthSitesConfig()
+                    for site_name, site in site_config.sites.root.items():
+                        if site_name == site.domain:
+                            entry = site_name
+                        else:
+                            # entry = f"{site_name} ({site.domain})"
+                            entry = (site_name, f"({site.domain})")
+
+                        auth_handlers[entry] = subcommand_app
+
+                        if site_name == site_config.default_site:
+                            # entry = f"{entry} (default)"
+                            entry = (*entry, "(default)")
+                            auth_handler_selectors.insert(0, entry)
+                        else:
+                            auth_handler_selectors.append(entry)
+                except ImportError as e:
+                    raise e
+            elif name == "cloud":
+                pass
+            elif alias:
                 auth_handlers[alias] = subcommand_app
                 auth_handler_selectors.append(alias)
 
