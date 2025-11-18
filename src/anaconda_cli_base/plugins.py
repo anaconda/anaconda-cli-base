@@ -24,8 +24,13 @@ PLUGIN_GROUP_NAME = "anaconda_cli.subcommand"
 # Plugins which are available but hidden from help text
 HIDDEN_PLUGINS = ["cloud"]
 
+PluginName = str
+ModuleName = str
 
-def _load_entry_points_for_group(group: str) -> List[Tuple[str, str, typer.Typer]]:
+
+def _load_entry_points_for_group(
+    group: str,
+) -> List[Tuple[PluginName, ModuleName, typer.Typer]]:
     # The API was changed in Python 3.10, see https://docs.python.org/3/library/importlib.metadata.html#entry-points
     found_entry_points: tuple
     if version_info.major == 3 and version_info.minor <= 9:
