@@ -18,7 +18,6 @@ from typer.core import TyperGroup
 
 from anaconda_cli_base import __version__
 from anaconda_cli_base import console
-from anaconda_cli_base.console import select_from_list
 from anaconda_cli_base.plugins import load_registered_subcommands
 from anaconda_cli_base.exceptions import ERROR_HANDLERS
 
@@ -182,60 +181,6 @@ def main(
             style="bold green",
         )
         raise typer.Exit()
-
-
-def _load_auth_handlers(
-    app: typer.Typer,
-    auth_handlers: Dict[str, typer.Typer],
-    auth_handlers_dropdown: List[str],
-) -> None:
-    def validate_at(ctx: typer.Context, _: Any, choice: str) -> str:
-        show_help = ctx.params.get("help", False) is True
-        if show_help:
-            help_str = ctx.get_help()
-            console.print(help_str)
-            raise typer.Exit()
-
-        if choice is None:
-            if len(auth_handlers_dropdown) > 1:
-                choice = select_from_list("choose destination:", auth_handlers_dropdown)
-            else:
-                # If only one is available, we don't need a picker
-                (choice,) = auth_handlers_dropdown
-
-        elif choice not in auth_handlers:
-            print(
-                f"{choice} is not an allowed value for --at. Use one of {auth_handlers_dropdown}"
-            )
-            raise typer.Abort()
-        return choice
-
-    def _action(
-        ctx: typer.Context,
-        at: str = typer.Option(
-            None, callback=validate_at, help=f"Choose from {auth_handlers_dropdown}"
-        ),
-        help: bool = typer.Option(False, "--help"),
-    ) -> None:
-        handler = auth_handlers[at]
-
-        args = ("--help",) if help else ctx.args
-        return handler(args=[ctx.command.name, *args], obj=ctx.obj)
-
-    help_doc = {
-        "login": "Sign into Anaconda services",
-        "logout": "Sign out from Anaconda services",
-        "whoami": "Display account information",
-    }
-
-    for action in "login", "logout", "whoami":
-        decorator = app.command(
-            action,
-            context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
-            rich_help_panel="Authentication",
-            help=help_doc[action],
-        )
-        decorator(_action)
 
 
 disable_plugins = bool(os.getenv("ANACONDA_CLI_DISABLE_PLUGINS"))
