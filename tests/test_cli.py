@@ -134,36 +134,41 @@ def test_load_plugin(
 
 
 @pytest.fixture
-def cloud_plugin() -> ENTRY_POINT_TUPLE:
-    plugin = typer.Typer(name="cloud", add_completion=False, no_args_is_help=True)
+def dummy_plugin(monkeypatch: MonkeyPatch) -> ENTRY_POINT_TUPLE:
+    monkeypatch.setitem(
+        anaconda_cli_base.plugins.AUTH_HANDLER_ALIASES, "dummy", "anaconda.com"
+    )
+    plugin = typer.Typer(name="dummy", add_completion=False, no_args_is_help=True)
 
     @plugin.command("action")
     def action() -> None:
-        console.print("cloud: done")
+        console.print("dummy: done")
 
     @plugin.command("login")
     def login(force: bool = typer.Option(False, "--force")) -> None:
-        console.print("cloud: You're in")
+        console.print("dummy: You're in")
 
     @plugin.command("logout")
     def logout() -> None:
-        console.print("cloud: You're out")
+        console.print("dummy: You're out")
 
     @plugin.command("whoami")
     def whoami() -> None:
-        console.print("cloud: Who are you?")
+        console.print("dummy: Who are you?")
 
-    return ("cloud", "auth-plugin:app", plugin)
+    return ("dummy", "auth-plugin:app", plugin)
 
 
-def test_load_cloud_plugin(
-    invoke_cli: CLIInvoker, cloud_plugin: ENTRY_POINT_TUPLE, mocker: MockerFixture
+def test_load_dummy_plugin(
+    invoke_cli: CLIInvoker,
+    dummy_plugin: ENTRY_POINT_TUPLE,
+    mocker: MockerFixture,
 ) -> None:
     assert "login" not in [
         cmd.name for cmd in anaconda_cli_base.cli.app.registered_commands
     ]
 
-    plugins = [cloud_plugin]
+    plugins = [dummy_plugin]
     mocker.patch(
         "anaconda_cli_base.plugins._load_entry_points_for_group", return_value=plugins
     )
@@ -173,12 +178,12 @@ def test_load_cloud_plugin(
         (
             group
             for group in anaconda_cli_base.cli.app.registered_groups
-            if group.name == "cloud"
+            if group.name == "dummy"
         ),
         None,
     )
     assert group is not None
-    assert group.typer_instance == cloud_plugin[-1]
+    assert group.typer_instance == dummy_plugin[-1]
 
     for action in "login", "logout", "whoami":
         cmd = next(
@@ -191,23 +196,23 @@ def test_load_cloud_plugin(
         )
         assert cmd is not None
 
-    result = invoke_cli(["cloud", "action"])
+    result = invoke_cli(["dummy", "action"])
     assert result.exit_code == 0
-    assert result.stdout == "cloud: done\n"
+    assert result.stdout == "dummy: done\n"
 
     result = invoke_cli(["login"], input="\n")
     assert result.exit_code == 0
-    assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
+    assert result.stdout.strip().splitlines()[-1].endswith("dummy: You're in")
 
-    result = invoke_cli(["login", "--at", "cloud"])
+    result = invoke_cli(["login", "--at", "dummy"])
     assert result.exit_code == 0
-    assert result.stdout == "cloud: You're in\n"
+    assert result.stdout == "dummy: You're in\n"
 
     result = invoke_cli(["login", "--at", "anaconda.com"])
     assert result.exit_code == 0
-    assert result.stdout == "cloud: You're in\n"
+    assert result.stdout == "dummy: You're in\n"
 
-    result = invoke_cli(["login", "--at", "cloud", "--help"])
+    result = invoke_cli(["login", "--at", "dummy", "--help"])
     assert result.exit_code == 0
     assert "--force" in result.stdout
 
@@ -316,7 +321,7 @@ def test_fail_org_legacy(
 def test_force_org_legacy(
     org_plugin: ENTRY_POINT_TUPLE,
     legacy_main: Callable,
-    cloud_plugin: ENTRY_POINT_TUPLE,
+    dummy_plugin: ENTRY_POINT_TUPLE,
     mocker: MockerFixture,
     monkeypatch: MonkeyPatch,
 ) -> None:
@@ -326,14 +331,14 @@ def test_force_org_legacy(
     monkeypatch.delenv("ANACONDA_CLI_FORCE_NEW", raising=False)
     monkeypatch.setenv("ANACONDA_CLIENT_FORCE_STANDALONE", "True")
 
-    plugins = [org_plugin, cloud_plugin]
+    plugins = [org_plugin, dummy_plugin]
     mocker.patch(
         "anaconda_cli_base.plugins._load_entry_points_for_group", return_value=plugins
     )
     load_registered_subcommands(cast(typer.Typer, anaconda_cli_base.cli.app))
     groups = [g.name for g in anaconda_cli_base.cli.app.registered_groups]
     assert "org" in groups
-    assert "cloud" in groups
+    assert "dummy" in groups
 
     final_app = _select_main_entrypoint_app(anaconda_cli_base.cli.app)
 
@@ -345,7 +350,7 @@ def test_force_org_legacy(
 def test_org_subcommand(
     invoke_cli: CLIInvoker,
     org_plugin: ENTRY_POINT_TUPLE,
-    cloud_plugin: ENTRY_POINT_TUPLE,
+    dummy_plugin: ENTRY_POINT_TUPLE,
     mocker: MockerFixture,
     monkeypatch: MonkeyPatch,
 ) -> None:
@@ -355,14 +360,14 @@ def test_org_subcommand(
     monkeypatch.delenv("ANACONDA_CLI_FORCE_NEW", raising=False)
     monkeypatch.delenv("ANACONDA_CLIENT_FORCE_STANDALONE", raising=False)
 
-    plugins = [org_plugin, cloud_plugin]
+    plugins = [org_plugin, dummy_plugin]
     mocker.patch(
         "anaconda_cli_base.plugins._load_entry_points_for_group", return_value=plugins
     )
     load_registered_subcommands(cast(typer.Typer, anaconda_cli_base.cli.app))
     groups = [g.name for g in anaconda_cli_base.cli.app.registered_groups]
     assert "org" in groups
-    assert "cloud" in groups
+    assert "dummy" in groups
 
     final_app = _select_main_entrypoint_app(anaconda_cli_base.cli.app)
 
@@ -395,7 +400,7 @@ def test_org_subcommand(
 def test_login_select_multiple_plugins(
     invoke_cli: CLIInvoker,
     org_plugin: ENTRY_POINT_TUPLE,
-    cloud_plugin: ENTRY_POINT_TUPLE,
+    dummy_plugin: ENTRY_POINT_TUPLE,
     mocker: MockerFixture,
     monkeypatch: MonkeyPatch,
 ) -> None:
@@ -405,7 +410,7 @@ def test_login_select_multiple_plugins(
     monkeypatch.delenv("ANACONDA_CLI_FORCE_NEW", raising=False)
     monkeypatch.delenv("ANACONDA_CLIENT_FORCE_STANDALONE", raising=False)
 
-    plugins = [org_plugin, cloud_plugin]
+    plugins = [org_plugin, dummy_plugin]
     mocker.patch(
         "anaconda_cli_base.plugins._load_entry_points_for_group", return_value=plugins
     )
@@ -418,7 +423,7 @@ def test_login_select_multiple_plugins(
 
     result = invoke_cli(["login"], input="\n")
     assert result.exit_code == 0
-    assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
+    assert result.stdout.strip().splitlines()[-1].endswith("dummy: You're in")
 
     result = invoke_cli(["login"], input="j\n")
     assert result.exit_code == 0
@@ -426,7 +431,7 @@ def test_login_select_multiple_plugins(
 
     result = invoke_cli(["login"], input="jk\n")
     assert result.exit_code == 0
-    assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
+    assert result.stdout.strip().splitlines()[-1].endswith("dummy: You're in")
 
     # These cannot be tested because key.UP and key.DOWN send multiple characters
     # through to click.getchar, but that does not happen interactively.
@@ -441,7 +446,7 @@ def test_login_select_multiple_plugins(
 
     # result = invoke_cli(["login"], input=key.UP+key.ENTER)
     # assert result.exit_code == 0
-    # assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
+    # assert result.stdout.strip().splitlines()[-1].endswith("dummy: You're in")
 
 
 def test_login_select_hidden_org(
@@ -469,12 +474,12 @@ def test_login_select_hidden_org(
 
 def test_login_select_hidden_cloud(
     invoke_cli: CLIInvoker,
-    cloud_plugin: ENTRY_POINT_TUPLE,
+    dummy_plugin: ENTRY_POINT_TUPLE,
     mocker: MockerFixture,
 ) -> None:
     """Single plugins installed, selector hidden"""
 
-    plugins = [cloud_plugin]
+    plugins = [dummy_plugin]
     mocker.patch(
         "anaconda_cli_base.plugins._load_entry_points_for_group", return_value=plugins
     )
@@ -482,7 +487,7 @@ def test_login_select_hidden_cloud(
 
     result = invoke_cli(["login"])
     assert result.exit_code == 0
-    assert result.stdout.strip() == "cloud: You're in"
+    assert result.stdout.strip() == "dummy: You're in"
 
 
 def test_capture_top_level_params(
