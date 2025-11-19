@@ -141,8 +141,8 @@ def load_registered_subcommands(app: typer.Typer) -> None:
                             auth_handler_selectors.append(entry)  # type: ignore
                 except ImportError as e:
                     raise e
-            # elif name == "cloud":
-            #     pass
+            elif name == "cloud":
+                pass
             elif alias:
                 auth_handlers[alias] = subcommand_app
                 auth_handler_selectors.append(alias)
