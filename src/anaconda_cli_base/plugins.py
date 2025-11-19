@@ -213,16 +213,16 @@ def load_registered_subcommands(app: typer.Typer) -> None:
                             entry = site_name
                         else:
                             # entry = f"{site_name} ({site.domain})"
-                            entry = (site_name, f"({site.domain})")
+                            entry = (site_name, f"({site.domain})")  # type: ignore
 
                         auth_handlers[entry] = subcommand_app
 
                         if site_name == site_config.default_site:
                             # entry = f"{entry} (default)"
-                            entry = (*entry, "(default)")
-                            auth_handler_selectors.insert(0, entry)
+                            entry = (*entry, "(default)")  # type: ignore
+                            auth_handler_selectors.insert(0, entry)  # type: ignore
                         else:
-                            auth_handler_selectors.append(entry)
+                            auth_handler_selectors.append(entry)  # type: ignore
                 except ImportError as e:
                     raise e
             # elif name == "cloud":
