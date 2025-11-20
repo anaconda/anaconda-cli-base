@@ -17,7 +17,7 @@ dynamic = ["version"]
 license = {text = "BSD-3-Clause"}
 name = "anaconda-cli-base"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
 # If anaconda-client is installed last, which defines the script entrypoint "anaconda"
 # this plugin is used to redirect the user back to anaconda-cli-base app.
