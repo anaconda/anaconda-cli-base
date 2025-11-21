@@ -124,7 +124,7 @@ deps =
     pytest-mock
     typer !=0.12.2
 conda_deps =
-    anaconda-auth >0.10.0
+    anaconda-auth >=0.11
 conda_channels =
     anaconda-cloud
     defaults
