@@ -499,8 +499,8 @@ def test_capture_top_level_params(
     # Test that subcommand captures the top-level CLI params via the typer.Context.obj.params attribute.
 
     # these env vars should not be set in a normal env for this test
-    monkeypatch.delenv("ANACONDA_CLI_FORCE_NEW", raising=False)
     monkeypatch.delenv("ANACONDA_CLIENT_FORCE_STANDALONE", raising=False)
+    monkeypatch.setenv("ANACONDA_CLI_FORCE_NEW", "true")
 
     plugins = [org_plugin]
     mocker.patch(

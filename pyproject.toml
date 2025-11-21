@@ -17,7 +17,7 @@ dynamic = ["version"]
 license = {text = "BSD-3-Clause"}
 name = "anaconda-cli-base"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
 # If anaconda-client is installed last, which defines the script entrypoint "anaconda"
 # this plugin is used to redirect the user back to anaconda-cli-base app.
@@ -103,7 +103,7 @@ target-version = "py38"
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py38,py39,py310,py311,py312,mypy
+envlist = py39,py310,py311,py312,py313,mypy
 isolated_build = True
 requires =
     tox-conda
@@ -113,8 +113,9 @@ requires =
 python =
     3.9: py39, mypy
     3.10: py310, mypy
-    3.11: py311
-    3.12: py312
+    3.11: py311, mypy
+    3.12: py312, mypy
+    3.13: py313, mypy
 
 [testenv]
 deps =

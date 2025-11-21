@@ -62,7 +62,7 @@ class ErrorHandledGroup(TyperGroup):
                     **extra,
                 )
             else:
-                cmd = " ".join([*ctx.protected_args, *ctx.args])
+                cmd = " ".join(ctx.args)
                 console.print(
                     f"\nTo see a more detailed error message run the command again as"
                     f"\n  [green]anaconda --verbose {cmd}[/green]"
