@@ -104,7 +104,9 @@ def _add_auth_actions_to_app(
 
     def _action(
         ctx: typer.Context,
-        at: str = typer.Option(None, help=f"Choose from {site_names}", hidden=False, callback=handler_help),
+        at: str = typer.Option(
+            None, help=f"Choose from {site_names}", hidden=False, callback=handler_help
+        ),
         help: bool = typer.Option(False, "--help", "-h"),
     ) -> None:
         ctx_at = ctx.obj.params.get("at")
