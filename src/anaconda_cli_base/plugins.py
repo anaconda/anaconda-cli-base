@@ -4,6 +4,7 @@ import warnings
 from importlib.metadata import EntryPoint
 from importlib.metadata import entry_points
 from sys import version_info
+from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -82,22 +83,30 @@ def _add_auth_actions_to_app(
                 f"{choice} is not an allowed value for --at. Use one of {auth_handlers_dropdown}"
             )
             raise typer.Abort()
+        else:
+            validated_choice = choice
         return validated_choice
 
     # Extract site names for help text
     site_names = [site_name for site_name, _ in auth_handlers_dropdown]
 
-    def _action(
-        ctx: typer.Context,
-        at: str = typer.Option(None, help=f"Choose from {site_names}", hidden=False),
-        help: bool = typer.Option(False, "--help", "-h"),
-    ) -> None:
+    # this ensures that we can reach the help message
+    # for the handler chosen by the --at flag if it appears
+    # before --help
+    def handler_help(ctx: typer.Context, _: Any, at: str) -> str:
         show_help = ctx.params.get("help", False) is True
         if show_help:
             help_str = ctx.get_help()
             console.print(help_str)
             raise typer.Exit()
 
+        return at
+
+    def _action(
+        ctx: typer.Context,
+        at: str = typer.Option(None, help=f"Choose from {site_names}", hidden=False, callback=handler_help),
+        help: bool = typer.Option(False, "--help", "-h"),
+    ) -> None:
         ctx_at = ctx.obj.params.get("at")
         if ctx_at and at:
             raise ValueError("--at was specified twice")
