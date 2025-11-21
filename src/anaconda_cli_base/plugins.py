@@ -170,11 +170,15 @@ def _add_auth_actions_to_app(
         hostname: Optional[str] = typer.Option(None, hidden=True),
         username: Optional[str] = typer.Option(None, hidden=True),
         password: Optional[str] = typer.Option(None, hidden=True),
-        help: bool = typer.Option(False, "--help"),
+        help: bool = typer.Option(False, "--help", "-h"),
     ) -> None:
+        ctx_at = ctx.obj.params.get("at")
+        if ctx_at and at:
+            raise ValueError("--at was specified twice")
+
         handler, args = _select_auth_handler_and_args(
             ctx=ctx,
-            at=at,
+            at=ctx_at or at,
             hostname=hostname,
             username=username,
             password=password,
