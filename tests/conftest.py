@@ -16,6 +16,7 @@ from typing import Generator
 
 import pytest
 import typer
+from typer import rich_utils
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
 from typer.testing import CliRunner
@@ -39,6 +40,12 @@ class CLIInvoker(Protocol):
         color: bool = False,
         **extra: Any,
     ) -> Result: ...
+
+
+@pytest.fixture(autouse=True)
+def ensure_wide_terminal(monkeypatch: MonkeyPatch) -> None:
+    """Ensure the terminal is wide enough for long output to stdout to prevent line breaks."""
+    monkeypatch.setattr(rich_utils, "MAX_WIDTH", 10000)
 
 
 @pytest.fixture

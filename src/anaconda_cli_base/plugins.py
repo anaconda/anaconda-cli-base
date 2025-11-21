@@ -24,7 +24,8 @@ def _load_entry_points_for_group(group: str) -> List[Tuple[str, str, typer.Typer
     found_entry_points: tuple
     if version_info.major == 3 and version_info.minor <= 9:
         found_entry_points = cast(
-            Tuple[EntryPoint, ...], entry_points().get(group, tuple())
+            Tuple[EntryPoint, ...],
+            entry_points().get(group, tuple()),  # type:ignore
         )
     else:
         found_entry_points = tuple(entry_points().select(group=group))  # type: ignore
