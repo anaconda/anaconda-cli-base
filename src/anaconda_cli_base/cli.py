@@ -117,6 +117,11 @@ class ContextExtras:
 @app.callback(invoke_without_command=True, no_args_is_help=True)
 def main(
     ctx: typer.Context,
+    at: Optional[str] = typer.Option(
+        default=None,
+        hidden=False,
+        help="Select the configured site to use by name or domain name",
+    ),
     token: Optional[str] = typer.Option(
         None,
         "-t",
@@ -170,6 +175,9 @@ def main(
 
     # Store all the top-level params on the obj attribute
     ctx.obj.params.update(ctx.params.copy())
+
+    if at is not None:
+        os.environ["ANACONDA_DEFAULT_SITE"] = at
 
     if show_help:
         console.print(ctx.get_help())
