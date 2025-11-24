@@ -11,7 +11,6 @@ from typing import Optional
 from typing import Protocol
 from typing import Sequence
 from typing import Union
-from typing import cast
 from typing import Generator
 
 import pytest
@@ -96,7 +95,7 @@ def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
         args = args or []
         monkeypatch.setattr(sys, "argv", ["path/to/anaconda"] + list(args))
         return runner.invoke(
-            cast(typer.Typer, anaconda_cli_base.cli.app),
+            anaconda_cli_base.cli.app,
             args,
             input=input,
             env=env,
