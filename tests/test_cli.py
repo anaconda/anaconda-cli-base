@@ -696,13 +696,19 @@ def test_select_auth_handler_and_args(
     ctx_mock = MagicMock()
     ctx_mock.args = []
 
+    # Build the four possible options into a dictionary with defaults
+    all_options = {
+        "at": None,
+        "username": None,
+        "password": None,
+        "hostname": None,
+    }
+    all_options.update(options)
+
     # Invoke the function
     handler, args = _select_auth_handler_and_args(
         ctx=ctx_mock,
-        **options,
-        hostname=None,
-        username=None,
-        password=None,
+        **all_options,
         help=False,
         auth_handlers=dummy_auth_handlers,
         auth_handlers_dropdown=[],
