@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import sys
-from functools import partial
 from importlib import reload
 from pathlib import Path
 from typing import IO
@@ -85,8 +84,6 @@ def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
 
     runner = CliRunner()
 
-    func = partial(runner.invoke, cast(typer.Typer, anaconda_cli_base.cli.app))
-
     def f(
         args: Optional[Union[str, Sequence[str]]] = None,
         input: Optional[Union[bytes, str, IO[Any]]] = None,
@@ -97,8 +94,13 @@ def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
     ) -> Result:
         args = args or []
         monkeypatch.setattr(sys, "argv", ["path/to/anaconda"] + list(args))
-        return func(
-            args, input=input, env=env, catch_exceptions=catch_exceptions, **extra
+        return runner.invoke(
+            cast(typer.Typer, anaconda_cli_base.cli.app),
+            args,
+            input=input,
+            env=env,
+            catch_exceptions=catch_exceptions,
+            **extra,
         )
 
     return f
