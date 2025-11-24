@@ -670,8 +670,8 @@ def test_error_handled(
 @pytest.mark.parametrize(
     "options, expected_handler",
     [
-        ({"at": "anaconda.org"}, "dot-org-handler"),
         ({"at": "anaconda.com"}, "dot-com-handler"),
+        ({"at": "anaconda.org"}, "dot-org-handler"),
     ],
 )
 def test_select_auth_handler_and_args(
