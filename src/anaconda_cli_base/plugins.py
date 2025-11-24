@@ -1,4 +1,5 @@
 import logging
+import sys
 import warnings
 from importlib.metadata import EntryPoint
 from importlib.metadata import entry_points
@@ -70,10 +71,18 @@ def _load_auth_handlers(
         at: Optional[str] = typer.Option(
             None, help=f"Choose from {auth_handlers_dropdown}", callback=handler_help
         ),
+        # Legacy options from anaconda-client login subcommand
+        hostname: Optional[str] = typer.Option(None, hidden=True),
+        username: Optional[str] = typer.Option(None, hidden=True),
+        password: Optional[str] = typer.Option(None, hidden=True),
         help: bool = typer.Option(False, "--help"),
     ) -> None:
-        args = ("--help",) if help else ctx.args
+        # If we use one of the legacy anaconda-client parameters, we implicitly select
+        # anaconda.org for the user.
+        if hostname or username or password:
+            at = "anaconda.org"
 
+        # Present a picker if the user doesn't use the --at site option
         if at is None:
             if len(auth_handlers_dropdown) > 1:
                 at = select_from_list("choose destination:", auth_handlers_dropdown)
@@ -81,13 +90,51 @@ def _load_auth_handlers(
                 # If only one is available, we don't need a picker
                 (at,) = auth_handlers_dropdown
 
-        elif at not in auth_handlers:
+        if at not in auth_handlers:
             print(
                 f"{at} is not an allowed value for --at. Use one of {auth_handlers_dropdown}"
             )
             raise typer.Abort()
 
         handler = auth_handlers[at]
+
+        # Consolidate the arguments to pass into the handler function
+        if help:
+            args = ["--help"]
+        elif at == "anaconda.org":
+            # In order to support legacy anaconda-client login arguments, we need to do some
+            # manual argument parsing to pass into the handler function
+
+            # Reconstruct the valid options
+            legacy_client_args = []
+            if hostname:
+                legacy_client_args.extend(["--hostname", hostname])
+            if username:
+                legacy_client_args.extend(["--username", username])
+            if password:
+                legacy_client_args.extend(["--password", password])
+
+            # We reconstruct sys.argv, dropping everything after the
+            # "login/logout/whoami" subcommand, and replacing with any passed options
+            def _find_subcommand_index(subcommands):
+                subcommands_str = "/".join(subcommands)
+                for s in subcommands:
+                    try:
+                        return sys.argv.index(s)
+                    except ValueError:
+                        pass
+
+                raise ValueError(f"Must use a valid subcommand '{subcommands_str}'")
+
+            # Extend sys.argv so we grab everything including the entrypoint and
+            # the subcommand, but drop any options
+            subcommand_index = _find_subcommand_index(["login", "logout", "whoami"])
+            sys.argv = sys.argv[: subcommand_index + 1] + legacy_client_args
+
+            print(f"{sys.argv=}")
+            args = legacy_client_args
+        else:
+            args = ctx.args
 
         return handler(args=[ctx.command.name, *args], obj=ctx.obj)
 
