@@ -96,7 +96,7 @@ def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
         monkeypatch.setattr(sys, "argv", ["path/to/anaconda"] + list(args))
         return runner.invoke(
             anaconda_cli_base.cli.app,
-            args,
+            args=args,
             input=input,
             env=env,
             catch_exceptions=catch_exceptions,
