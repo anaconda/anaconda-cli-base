@@ -228,7 +228,12 @@ def org_plugin(monkeypatch: MonkeyPatch) -> ENTRY_POINT_TUPLE:
         print(f"token: {ctx.obj.params.get('token')}")
 
     @plugin.command("login")
-    def login(force: bool = typer.Option(False, "--force")) -> None:
+    def login(
+        force: bool = typer.Option(False, "--force"),
+        hostname: Optional[str] = typer.Option(None),
+        username: Optional[str] = typer.Option(None),
+        password: Optional[str] = typer.Option(None),
+    ) -> None:
         console.print("org: You're in")
 
     @plugin.command("logout")
@@ -387,6 +392,47 @@ def test_org_subcommand(
     assert result.stdout == "org: You're in\n"
 
     result = invoke_cli(["login", "--at", "anaconda.org"])
+    assert result.exit_code == 0
+    assert result.stdout == "org: You're in\n"
+
+
+def test_org_login_explicit_username(
+    invoke_cli: CLIInvoker,
+    org_plugin: ENTRY_POINT_TUPLE,
+    cloud_plugin: ENTRY_POINT_TUPLE,
+    mocker: MockerFixture,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Login with explicit --username and --password arguments doesn't raise an error."""
+
+    # these env vars should not be set in a normal env for this test
+    monkeypatch.delenv("ANACONDA_CLI_FORCE_NEW", raising=False)
+    monkeypatch.delenv("ANACONDA_CLIENT_FORCE_STANDALONE", raising=False)
+
+    plugins = [org_plugin, cloud_plugin]
+    mocker.patch(
+        "anaconda_cli_base.plugins._load_entry_points_for_group", return_value=plugins
+    )
+    load_registered_subcommands(cast(typer.Typer, anaconda_cli_base.cli.app))
+    groups = [g.name for g in anaconda_cli_base.cli.app.registered_groups]
+    assert "org" in groups
+    assert "cloud" in groups
+
+    final_app = _select_main_entrypoint_app(anaconda_cli_base.cli.app)
+
+    assert final_app is anaconda_cli_base.cli.app
+
+    result = invoke_cli(
+        [
+            "login",
+            "--at",
+            "anaconda.org",
+            "--username",
+            "some-user",
+            "--password",
+            "secret-password",
+        ]
+    )
     assert result.exit_code == 0
     assert result.stdout == "org: You're in\n"
 
