@@ -84,6 +84,7 @@ def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
 
     runner = CliRunner()
 
+    # Construct a wrapper function so that we can also patch sys.argv when invoking the CLI
     def f(
         args: Optional[Union[str, Sequence[str]]] = None,
         input: Optional[Union[bytes, str, IO[Any]]] = None,
