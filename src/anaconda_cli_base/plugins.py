@@ -6,6 +6,7 @@ from sys import version_info
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Optional
 from typing import Tuple
 from typing import cast
 
@@ -52,37 +53,42 @@ def _load_auth_handlers(
     auth_handlers: Dict[str, typer.Typer],
     auth_handlers_dropdown: List[str],
 ) -> None:
-    def validate_at(ctx: typer.Context, _: Any, choice: str) -> str:
+    # this ensures that we can reach the help message
+    # for the handler chosen by the --at flag if it appears
+    # before --help
+    def handler_help(ctx: typer.Context, _: Any, at: Optional[str]) -> Optional[str]:
         show_help = ctx.params.get("help", False) is True
         if show_help:
             help_str = ctx.get_help()
             console.print(help_str)
             raise typer.Exit()
 
-        if choice is None:
-            if len(auth_handlers_dropdown) > 1:
-                choice = select_from_list("choose destination:", auth_handlers_dropdown)
-            else:
-                # If only one is available, we don't need a picker
-                (choice,) = auth_handlers_dropdown
-
-        elif choice not in auth_handlers:
-            print(
-                f"{choice} is not an allowed value for --at. Use one of {auth_handlers_dropdown}"
-            )
-            raise typer.Abort()
-        return choice
+        return at
 
     def _action(
         ctx: typer.Context,
-        at: str = typer.Option(
-            None, callback=validate_at, help=f"Choose from {auth_handlers_dropdown}"
+        at: Optional[str] = typer.Option(
+            None, help=f"Choose from {auth_handlers_dropdown}", callback=handler_help
         ),
         help: bool = typer.Option(False, "--help"),
     ) -> None:
+        args = ("--help",) if help else ctx.args
+
+        if at is None:
+            if len(auth_handlers_dropdown) > 1:
+                at = select_from_list("choose destination:", auth_handlers_dropdown)
+            else:
+                # If only one is available, we don't need a picker
+                (at,) = auth_handlers_dropdown
+
+        elif at not in auth_handlers:
+            print(
+                f"{at} is not an allowed value for --at. Use one of {auth_handlers_dropdown}"
+            )
+            raise typer.Abort()
+
         handler = auth_handlers[at]
 
-        args = ("--help",) if help else ctx.args
         return handler(args=[ctx.command.name, *args], obj=ctx.obj)
 
     help_doc = {
