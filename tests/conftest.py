@@ -100,6 +100,7 @@ def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
             input=input,
             env=env,
             catch_exceptions=catch_exceptions,
+            color=color,
             **extra,
         )
 
