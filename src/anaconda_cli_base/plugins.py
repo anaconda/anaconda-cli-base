@@ -118,7 +118,6 @@ def _select_auth_handler_and_args(
         subcommand_index = _find_subcommand_index(["login", "logout", "whoami"])
         sys.argv = sys.argv[: subcommand_index + 1] + legacy_client_args
 
-        print(f"{sys.argv=}")
         args = legacy_client_args
     else:
         args = ctx.args
