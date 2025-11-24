@@ -1,4 +1,6 @@
 import importlib
+import itertools
+import sys
 from functools import partial
 from typing import Tuple
 from typing import Type
@@ -17,7 +19,10 @@ from anaconda_cli_base import __version__
 from anaconda_cli_base import console
 from anaconda_cli_base.cli import _select_main_entrypoint_app
 from anaconda_cli_base.exceptions import register_error_handler
-from anaconda_cli_base.plugins import load_registered_subcommands
+from anaconda_cli_base.plugins import (
+    load_registered_subcommands,
+    _select_auth_handler_and_args,
+)
 
 from .conftest import CLIInvoker
 
@@ -660,3 +665,34 @@ def test_error_handled(
         "calling counter",
         "RuntimeError: something went wrong",
     ]
+
+
+def test_select_auth_handler_and_args(monkeypatch: MonkeyPatch):
+    """Test selection of auth handler and construction of arguments to pass through to the handler."""
+    options = {"at": "anaconda.org"}
+
+    # Build a list like ["--at", "anaconda.org"] from the dictionary
+    options_list = list(
+        itertools.chain.from_iterable(
+            [f"--{option}", value] for option, value in options.items()
+        )
+    )
+    # Patch the sys args
+    monkeypatch.setattr(sys, "argv", ["/path/to/anaconda", "login"] + options_list)
+
+    # Construct a mapping of auth handlers, normally would be loaded via plugins
+    dummy_auth_handlers = {"org": "test_handler", "anaconda.org": "test_handler"}
+
+    # Invoke the function
+    handler, args = _select_auth_handler_and_args(
+        ctx=None,
+        **options,
+        hostname=None,
+        username=None,
+        password=None,
+        help=False,
+        auth_handlers=dummy_auth_handlers,
+        auth_handlers_dropdown=[],
+    )
+    assert handler == "test_handler"
+    assert args == []
