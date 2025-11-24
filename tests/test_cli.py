@@ -667,10 +667,16 @@ def test_error_handled(
     ]
 
 
-def test_select_auth_handler_and_args(monkeypatch: MonkeyPatch):
-    """Test selection of auth handler and construction of arguments to pass through to the handler."""
-    options = {"at": "anaconda.org"}
-
+@pytest.mark.parametrize(
+    "options, expected_handler",
+    [
+        ({"at": "anaconda.org"}, "dot-org-handler"),
+        ({"at": "anaconda.com"}, "dot-com-handler"),
+    ],
+)
+def test_select_auth_handler_and_args(
+    options: dict[str, str], expected_handler: str, *, monkeypatch: MonkeyPatch
+):
     # Build a list like ["--at", "anaconda.org"] from the dictionary
     options_list = list(
         itertools.chain.from_iterable(
@@ -681,11 +687,18 @@ def test_select_auth_handler_and_args(monkeypatch: MonkeyPatch):
     monkeypatch.setattr(sys, "argv", ["/path/to/anaconda", "login"] + options_list)
 
     # Construct a mapping of auth handlers, normally would be loaded via plugins
-    dummy_auth_handlers = {"org": "test_handler", "anaconda.org": "test_handler"}
+    dummy_auth_handlers = {
+        "anaconda.com": "dot-com-handler",
+        "anaconda.org": "dot-org-handler",
+    }
+
+    # Mock the context since we're not really calling the CLI
+    ctx_mock = MagicMock()
+    ctx_mock.args = []
 
     # Invoke the function
     handler, args = _select_auth_handler_and_args(
-        ctx=None,
+        ctx=ctx_mock,
         **options,
         hostname=None,
         username=None,
@@ -694,5 +707,5 @@ def test_select_auth_handler_and_args(monkeypatch: MonkeyPatch):
         auth_handlers=dummy_auth_handlers,
         auth_handlers_dropdown=[],
     )
-    assert handler == "test_handler"
+    assert handler == expected_handler
     assert args == []
