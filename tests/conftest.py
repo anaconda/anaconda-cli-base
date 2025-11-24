@@ -7,7 +7,6 @@ from importlib import reload
 from pathlib import Path
 from typing import IO
 from typing import Any
-from typing import Iterable
 from typing import Mapping
 from typing import Optional
 from typing import Protocol
@@ -88,8 +87,18 @@ def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
 
     func = partial(runner.invoke, cast(typer.Typer, anaconda_cli_base.cli.app))
 
-    def f(args: Iterable[str], **kwargs):
+    def f(
+        args: Optional[Union[str, Sequence[str]]] = None,
+        input: Optional[Union[bytes, str, IO[Any]]] = None,
+        env: Optional[Mapping[str, str]] = None,
+        catch_exceptions: bool = True,
+        color: bool = False,
+        **extra: Any,
+    ) -> Result:
+        args = args or []
         monkeypatch.setattr(sys, "argv", ["path/to/anaconda"] + list(args))
-        return func(args, **kwargs)
+        return func(
+            args, input=input, env=env, catch_exceptions=catch_exceptions, **extra
+        )
 
     return f

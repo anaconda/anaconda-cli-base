@@ -5,6 +5,7 @@ from importlib.metadata import EntryPoint
 from importlib.metadata import entry_points
 from sys import version_info
 from typing import Any
+from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -59,7 +60,7 @@ def _select_auth_handler_and_args(
     help: bool,
     auth_handlers: Dict[str, typer.Typer],
     auth_handlers_dropdown: List[str],
-):
+) -> Tuple[Callable, list[str]]:
     """Select the appropriate auth handler, and construct its arguments, depending on
     user input. Isolated to enable better testing to support legacy anaconda.org login
     flows.
@@ -103,7 +104,7 @@ def _select_auth_handler_and_args(
 
         # We reconstruct sys.argv, dropping everything after the
         # "login/logout/whoami" subcommand, and replacing with any passed options
-        def _find_subcommand_index(subcommands):
+        def _find_subcommand_index(subcommands: list[str]) -> int:
             subcommands_str = "/".join(subcommands)
             for s in subcommands:
                 try:
