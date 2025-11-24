@@ -668,14 +668,19 @@ def test_error_handled(
 
 
 @pytest.mark.parametrize(
-    "options, expected_handler",
+    "options, expected_handler, expected_args",
     [
-        ({"at": "anaconda.com"}, "dot-com-handler"),
-        ({"at": "anaconda.org"}, "dot-org-handler"),
+        ({"at": "anaconda.com"}, "dot-com-handler", []),
+        ({"at": "anaconda.org"}, "dot-org-handler", []),
+        ({"username": "some-user"}, "dot-org-handler", ["--username", "some-user"]),
     ],
 )
 def test_select_auth_handler_and_args(
-    options: dict[str, str], expected_handler: str, *, monkeypatch: MonkeyPatch
+    options: dict[str, str],
+    expected_handler: str,
+    expected_args: list[str],
+    *,
+    monkeypatch: MonkeyPatch,
 ):
     # Build a list like ["--at", "anaconda.org"] from the dictionary
     options_list = list(
@@ -713,5 +718,7 @@ def test_select_auth_handler_and_args(
         auth_handlers=dummy_auth_handlers,
         auth_handlers_dropdown=[],
     )
+
+    # Assert we select the right handler and parse into the correct arguments
     assert handler == expected_handler
-    assert args == []
+    assert args == expected_args
