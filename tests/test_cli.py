@@ -670,9 +670,26 @@ def test_error_handled(
 @pytest.mark.parametrize(
     "options, expected_handler, expected_args",
     [
-        ({"at": "anaconda.com"}, "dot-com-handler", []),
-        ({"at": "anaconda.org"}, "dot-org-handler", []),
-        ({"username": "some-user"}, "dot-org-handler", ["--username", "some-user"]),
+        pytest.param({"at": "anaconda.com"}, "dot-com-handler", [], id="dot-com-at"),
+        pytest.param({"at": "anaconda.org"}, "dot-org-handler", [], id="dot-org-at"),
+        pytest.param(
+            {"username": "some-user"},
+            "dot-org-handler",
+            ["--username", "some-user"],
+            id="dot-org-username",
+        ),
+        pytest.param(
+            {"username": "some-user", "password": "secret-password"},
+            "dot-org-handler",
+            ["--username", "some-user", "--password", "secret-password"],
+            id="dot-org-username-password",
+        ),
+        pytest.param(
+            {"hostname": "some-hostname"},
+            "dot-org-handler",
+            ["--hostname", "some-hostname"],
+            id="dot-org-hostname",
+        ),
     ],
 )
 def test_select_auth_handler_and_args(
