@@ -479,9 +479,6 @@ def test_login_select_multiple_plugins(
     assert result.exit_code == 0
     assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
 
-    # These cannot be tested because key.UP and key.DOWN send multiple characters
-    # through to click.getchar, but that does not happen interactively.
-
     result = invoke_cli(["login"], input=key.ENTER)
     assert result.exit_code == 0, result.stdout
     assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
