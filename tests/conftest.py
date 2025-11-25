@@ -6,6 +6,7 @@ from importlib import reload
 from pathlib import Path
 from typing import IO
 from typing import Any
+from typing import Callable
 from typing import Mapping
 from typing import Optional
 from typing import Protocol
@@ -96,10 +97,11 @@ def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
         args = args or []
         monkeypatch.setattr(sys, "argv", ["path/to/anaconda"] + list(args))
 
-        def mock_get_key(input_string: str):
+        def mock_get_key(input_string: str) -> Callable[[], str]:
+            """Generate a mock function for get_key, from an input string."""
             gen = (char for char in input_string)
 
-            def get_key():
+            def get_key() -> str:
                 try:
                     return next(gen)
                 except StopIteration:

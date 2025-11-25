@@ -52,7 +52,7 @@ def _generate_table(header: str, rows: List[str], selected: int) -> Table:
     return table
 
 
-def _read_key() -> None:
+def _read_key() -> str:
     """Read a key from the terminal. We use click if we are not on Windows, but must
     use `readchar.readkey()` on Windows since keys like UP/DOWN are multiple characters.
 
