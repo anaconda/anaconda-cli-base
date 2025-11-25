@@ -14,6 +14,7 @@ from typing import Union
 from typing import Generator
 
 import pytest
+import readchar
 import typer
 from typer import rich_utils
 from pytest import MonkeyPatch
@@ -94,6 +95,25 @@ def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
     ) -> Result:
         args = args or []
         monkeypatch.setattr(sys, "argv", ["path/to/anaconda"] + list(args))
+
+        def mock_get_key(input_string: str):
+            gen = (char for char in input_string)
+
+            def get_key():
+                try:
+                    return next(gen)
+                except StopIteration:
+                    raise EOFError("No more input available")
+
+            return get_key
+
+        monkeypatch.setattr(
+            readchar._posix_read, "readchar", mock_get_key(str(input) or "")
+        )
+        monkeypatch.setattr(
+            readchar._win_read, "readchar", mock_get_key(str(input) or "")
+        )
+
         return runner.invoke(
             anaconda_cli_base.cli.app,
             args=args,

@@ -58,6 +58,7 @@ def _read_key() -> None:
 
     We can probably just use readkey() for all OS's, but that is proving challenging to mock.
     """
+    return readchar.readkey()
     try:
         import msvcrt  # noqa: F401
     except ImportError:
