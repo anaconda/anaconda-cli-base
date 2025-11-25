@@ -13,6 +13,7 @@ import typer
 from packaging import version
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
+from readchar import key
 
 import anaconda_cli_base.cli
 from anaconda_cli_base import __version__
@@ -467,7 +468,7 @@ def test_login_select_multiple_plugins(
     )
 
     result = invoke_cli(["login"], input="\n")
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.stdout
     assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
 
     result = invoke_cli(["login"], input="j\n")
@@ -481,17 +482,17 @@ def test_login_select_multiple_plugins(
     # These cannot be tested because key.UP and key.DOWN send multiple characters
     # through to click.getchar, but that does not happen interactively.
 
-    # result = invoke_cli(["login"], input=key.ENTER)
-    # assert result.exit_code == 0
-    # assert result.stdout.strip().splitlines()[-1].endswith("org: You're in")
+    result = invoke_cli(["login"], input=key.ENTER)
+    assert result.exit_code == 0, result.stdout
+    assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
 
-    # result = invoke_cli(["login"], input=key.DOWN+key.ENTER)
-    # assert result.exit_code == 0
-    # assert result.stdout.strip().splitlines()[-1].endswith("org: You're in")
+    result = invoke_cli(["login"], input=key.DOWN + key.ENTER)
+    assert result.exit_code == 0, result.stdout
+    assert result.stdout.strip().splitlines()[-1].endswith("org: You're in")
 
-    # result = invoke_cli(["login"], input=key.UP+key.ENTER)
-    # assert result.exit_code == 0
-    # assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
+    result = invoke_cli(["login"], input=key.DOWN + key.UP + key.ENTER)
+    assert result.exit_code == 0, result.stdout
+    assert result.stdout.strip().splitlines()[-1].endswith("cloud: You're in")
 
 
 def test_login_select_hidden_org(
