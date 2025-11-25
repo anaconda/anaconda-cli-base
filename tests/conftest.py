@@ -4,6 +4,7 @@ import os
 import sys
 from importlib import reload
 from pathlib import Path
+from types import ModuleType
 from typing import IO
 from typing import Any
 from typing import Callable
@@ -110,6 +111,7 @@ def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
             return get_key
 
         # We need to conditionally monkeypatch different modules, depending on the operating system
+        module: ModuleType
         if sys.platform in ("win32", "cygwin"):
             module = readchar._win_read
         else:
