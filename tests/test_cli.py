@@ -1,4 +1,6 @@
 import importlib
+import itertools
+import sys
 from functools import partial
 from typing import Tuple
 from typing import Type
@@ -17,7 +19,10 @@ from anaconda_cli_base import __version__
 from anaconda_cli_base import console
 from anaconda_cli_base.cli import _select_main_entrypoint_app
 from anaconda_cli_base.exceptions import register_error_handler
-from anaconda_cli_base.plugins import load_registered_subcommands
+from anaconda_cli_base.plugins import (
+    load_registered_subcommands,
+    _select_auth_handler_and_args,
+)
 
 from .conftest import CLIInvoker
 
@@ -228,7 +233,12 @@ def org_plugin(monkeypatch: MonkeyPatch) -> ENTRY_POINT_TUPLE:
         print(f"token: {ctx.obj.params.get('token')}")
 
     @plugin.command("login")
-    def login(force: bool = typer.Option(False, "--force")) -> None:
+    def login(
+        force: bool = typer.Option(False, "--force"),
+        hostname: Optional[str] = typer.Option(None),
+        username: Optional[str] = typer.Option(None),
+        password: Optional[str] = typer.Option(None),
+    ) -> None:
         console.print("org: You're in")
 
     @plugin.command("logout")
@@ -387,6 +397,47 @@ def test_org_subcommand(
     assert result.stdout == "org: You're in\n"
 
     result = invoke_cli(["login", "--at", "anaconda.org"])
+    assert result.exit_code == 0
+    assert result.stdout == "org: You're in\n"
+
+
+def test_org_login_explicit_username(
+    invoke_cli: CLIInvoker,
+    org_plugin: ENTRY_POINT_TUPLE,
+    cloud_plugin: ENTRY_POINT_TUPLE,
+    mocker: MockerFixture,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Login with explicit --username and --password arguments doesn't raise an error."""
+
+    # these env vars should not be set in a normal env for this test
+    monkeypatch.delenv("ANACONDA_CLI_FORCE_NEW", raising=False)
+    monkeypatch.delenv("ANACONDA_CLIENT_FORCE_STANDALONE", raising=False)
+
+    plugins = [org_plugin, cloud_plugin]
+    mocker.patch(
+        "anaconda_cli_base.plugins._load_entry_points_for_group", return_value=plugins
+    )
+    load_registered_subcommands(cast(typer.Typer, anaconda_cli_base.cli.app))
+    groups = [g.name for g in anaconda_cli_base.cli.app.registered_groups]
+    assert "org" in groups
+    assert "cloud" in groups
+
+    final_app = _select_main_entrypoint_app(anaconda_cli_base.cli.app)
+
+    assert final_app is anaconda_cli_base.cli.app
+
+    result = invoke_cli(
+        [
+            "login",
+            "--at",
+            "anaconda.org",
+            "--username",
+            "some-user",
+            "--password",
+            "secret-password",
+        ]
+    )
     assert result.exit_code == 0
     assert result.stdout == "org: You're in\n"
 
@@ -614,3 +665,76 @@ def test_error_handled(
         "calling counter",
         "RuntimeError: something went wrong",
     ]
+
+
+@pytest.mark.parametrize(
+    "options, expected_handler, expected_args",
+    [
+        pytest.param({"at": "anaconda.com"}, "dot-com-handler", [], id="dot-com-at"),
+        pytest.param({"at": "anaconda.org"}, "dot-org-handler", [], id="dot-org-at"),
+        pytest.param(
+            {"username": "some-user"},
+            "dot-org-handler",
+            ["--username", "some-user"],
+            id="dot-org-username",
+        ),
+        pytest.param(
+            {"username": "some-user", "password": "secret-password"},
+            "dot-org-handler",
+            ["--username", "some-user", "--password", "secret-password"],
+            id="dot-org-username-password",
+        ),
+        pytest.param(
+            {"hostname": "some-hostname"},
+            "dot-org-handler",
+            ["--hostname", "some-hostname"],
+            id="dot-org-hostname",
+        ),
+    ],
+)
+def test_select_auth_handler_and_args(
+    options: dict[str, str],
+    expected_handler: str,
+    expected_args: list[str],
+    *,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    # Build a list like ["--at", "anaconda.org"] from the dictionary
+    options_list = list(
+        itertools.chain.from_iterable(
+            [f"--{option}", value] for option, value in options.items()
+        )
+    )
+    # Patch the sys args
+    monkeypatch.setattr(sys, "argv", ["/path/to/anaconda", "login"] + options_list)
+
+    # Construct a mapping of auth handlers, normally would be loaded via plugins
+    dummy_auth_handlers = {
+        "anaconda.com": "dot-com-handler",
+        "anaconda.org": "dot-org-handler",
+    }
+
+    # Mock the context since we're not really calling the CLI
+    ctx_mock = MagicMock()
+    ctx_mock.args = []
+
+    # Build the four possible options into a dictionary with defaults
+    option_defaults = {
+        "at": None,
+        "username": None,
+        "password": None,
+        "hostname": None,
+    }
+
+    # Invoke the function
+    handler, args = _select_auth_handler_and_args(
+        ctx=ctx_mock,
+        **{**option_defaults, **options},
+        help=False,
+        auth_handlers=dummy_auth_handlers,  # type: ignore
+        auth_handlers_dropdown=[],
+    )
+
+    # Assert we select the right handler and parse into the correct arguments
+    assert handler == expected_handler
+    assert args == expected_args

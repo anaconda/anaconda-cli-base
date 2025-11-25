@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from functools import partial
+import sys
 from importlib import reload
 from pathlib import Path
 from typing import IO
@@ -11,7 +11,6 @@ from typing import Optional
 from typing import Protocol
 from typing import Sequence
 from typing import Union
-from typing import cast
 from typing import Generator
 
 import pytest
@@ -79,9 +78,30 @@ def prepare_app() -> Generator[None, None, None]:
 
 
 @pytest.fixture()
-def invoke_cli(tmp_cwd: Path) -> CLIInvoker:
+def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
     """Returns a function, which can be used to call the CLI from within a temporary directory."""
 
     runner = CliRunner()
 
-    return partial(runner.invoke, cast(typer.Typer, anaconda_cli_base.cli.app))
+    # Construct a wrapper function so that we can also patch sys.argv when invoking the CLI
+    def f(
+        args: Optional[Union[str, Sequence[str]]] = None,
+        input: Optional[Union[bytes, str, IO[Any]]] = None,
+        env: Optional[Mapping[str, str]] = None,
+        catch_exceptions: bool = True,
+        color: bool = False,
+        **extra: Any,
+    ) -> Result:
+        args = args or []
+        monkeypatch.setattr(sys, "argv", ["path/to/anaconda"] + list(args))
+        return runner.invoke(
+            anaconda_cli_base.cli.app,
+            args=args,
+            input=input,
+            env=env,
+            catch_exceptions=catch_exceptions,
+            color=color,
+            **extra,
+        )
+
+    return f
