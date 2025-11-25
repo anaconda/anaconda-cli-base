@@ -109,12 +109,15 @@ def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
 
             return get_key
 
-        monkeypatch.setattr(
-            readchar._posix_read, "readchar", mock_get_key(str(input) or "")
-        )
-        monkeypatch.setattr(
-            readchar._win_read, "readchar", mock_get_key(str(input) or "")
-        )
+        # We need to conditionally monkeypatch different modules, depending on the operating system
+        if hasattr(readchar, "_posix_read"):
+            monkeypatch.setattr(
+                readchar._posix_read, "readchar", mock_get_key(str(input) or "")
+            )
+        if hasattr(readchar, "_win_read"):
+            monkeypatch.setattr(
+                readchar._win_read, "readchar", mock_get_key(str(input) or "")
+            )
 
         return runner.invoke(
             anaconda_cli_base.cli.app,
