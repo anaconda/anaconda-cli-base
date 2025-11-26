@@ -2,8 +2,7 @@ import logging
 import os
 from typing import List
 
-import click
-from readchar import key
+from readchar import key, readkey
 from rich.console import Console
 from rich.live import Live
 from rich.logging import RichHandler
@@ -58,12 +57,12 @@ def select_from_list(prompt: str, choices: List[str]) -> str:
 
     selected = 0
     with Live(_generate_table(prompt, items, selected), auto_refresh=False) as live:
-        while ch := click.getchar(echo=True):
-            if ch == key.UP or ch == "k":
+        while keypress := readkey():
+            if keypress == key.UP or keypress == "k":
                 selected = max(0, selected - 1)
-            if ch == key.DOWN or ch == "j":
+            if keypress == key.DOWN or keypress == "j":
                 selected = min(len(items) - 1, selected + 1)
-            if ch in ["\n", "\r", key.ENTER]:
+            if keypress in ["\n", "\r", key.ENTER]:
                 live.stop()
                 return items[selected]
             live.update(_generate_table(prompt, items, selected), refresh=True)

@@ -4,8 +4,10 @@ import os
 import sys
 from importlib import reload
 from pathlib import Path
+from types import ModuleType
 from typing import IO
 from typing import Any
+from typing import Callable
 from typing import Mapping
 from typing import Optional
 from typing import Protocol
@@ -14,6 +16,7 @@ from typing import Union
 from typing import Generator
 
 import pytest
+import readchar
 import typer
 from typer import rich_utils
 from pytest import MonkeyPatch
@@ -94,6 +97,28 @@ def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
     ) -> Result:
         args = args or []
         monkeypatch.setattr(sys, "argv", ["path/to/anaconda"] + list(args))
+
+        def mock_get_key(input_string: str) -> Callable[[], str]:
+            """Generate a mock function for get_key, from an input string."""
+            gen = (char for char in input_string)
+
+            def get_key() -> str:
+                try:
+                    return next(gen)
+                except StopIteration:
+                    raise EOFError("No more input available")
+
+            return get_key
+
+        # We need to conditionally monkeypatch different modules, depending on the operating system
+        module: ModuleType
+        if sys.platform in ("win32", "cygwin"):
+            module = readchar._win_read
+        else:
+            module = readchar._posix_read
+
+        monkeypatch.setattr(module, "readchar", mock_get_key(str(input) or ""))
+
         return runner.invoke(
             anaconda_cli_base.cli.app,
             args=args,
