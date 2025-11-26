@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 import warnings
 from importlib.metadata import EntryPoint
@@ -24,10 +25,18 @@ PLUGIN_GROUP_NAME = "anaconda_cli.subcommand"
 # Plugins which are available but hidden from help text
 HIDDEN_PLUGINS = ["cloud"]
 
+# Type aliases
+PluginName = str
+ModuleName = str
+SiteName = str
+SiteDisplayName = str
 
-def _load_entry_points_for_group(group: str) -> List[Tuple[str, str, typer.Typer]]:
+
+def _load_entry_points_for_group(
+    group: str,
+) -> List[Tuple[PluginName, ModuleName, typer.Typer]]:
     # The API was changed in Python 3.10, see https://docs.python.org/3/library/importlib.metadata.html#entry-points
-    found_entry_points: tuple
+    found_entry_points: Tuple
     if version_info.major == 3 and version_info.minor <= 9:
         found_entry_points = cast(
             Tuple[EntryPoint, ...],
@@ -62,7 +71,7 @@ def _select_auth_handler_and_args(
     password: Optional[str],
     help: bool,
     auth_handlers: Dict[str, typer.Typer],
-    auth_handlers_dropdown: List[str],
+    auth_handlers_dropdown: List[Tuple[SiteName, SiteDisplayName]],
 ) -> Tuple[Callable, list[str]]:
     """Select the appropriate auth handler, and construct its arguments, depending on
     user input. Isolated to enable better testing to support legacy anaconda.org login
@@ -79,13 +88,17 @@ def _select_auth_handler_and_args(
             at = select_from_list("choose destination:", auth_handlers_dropdown)
         else:
             # If only one is available, we don't need a picker
-            (at,) = auth_handlers_dropdown
+            (default_auth_handler,) = auth_handlers_dropdown
+            (at, _) = default_auth_handler
 
     if at not in auth_handlers:
         print(
             f"{at} is not an allowed value for --at. Use one of {auth_handlers_dropdown}"
         )
         raise typer.Abort()
+
+    # Set globally to propagate to site config
+    os.environ["ANACONDA_DEFAULT_SITE"] = at
 
     handler = auth_handlers[at]
 
@@ -128,10 +141,10 @@ def _select_auth_handler_and_args(
     return handler, args
 
 
-def _load_auth_handlers(
+def _add_auth_actions_to_app(
     app: typer.Typer,
     auth_handlers: Dict[str, typer.Typer],
-    auth_handlers_dropdown: List[str],
+    auth_handlers_dropdown: List[Tuple[SiteName, SiteDisplayName]],
 ) -> None:
     # this ensures that we can reach the help message
     # for the handler chosen by the --at flag if it appears
@@ -145,20 +158,27 @@ def _load_auth_handlers(
 
         return at
 
+    # Extract site names for help text
+    site_names = [site_name for site_name, _ in auth_handlers_dropdown]
+
     def _action(
         ctx: typer.Context,
         at: Optional[str] = typer.Option(
-            None, help=f"Choose from {auth_handlers_dropdown}", callback=handler_help
+            None, help=f"Choose from {site_names}", callback=handler_help
         ),
         # Legacy options from anaconda-client login subcommand
         hostname: Optional[str] = typer.Option(None, hidden=True),
         username: Optional[str] = typer.Option(None, hidden=True),
         password: Optional[str] = typer.Option(None, hidden=True),
-        help: bool = typer.Option(False, "--help"),
+        help: bool = typer.Option(False, "--help", "-h"),
     ) -> None:
+        ctx_at = ctx.obj.params.get("at")
+        if ctx_at and at:
+            raise ValueError("--at was specified twice")
+
         handler, args = _select_auth_handler_and_args(
             ctx=ctx,
-            at=at,
+            at=ctx_at or at,
             hostname=hostname,
             username=username,
             password=password,
@@ -184,22 +204,73 @@ def _load_auth_handlers(
         decorator(_action)
 
 
+def _load_auth_handler(
+    subcommand_app: typer.Typer,
+    name: PluginName,
+    auth_handlers: Dict[PluginName, typer.Typer],
+    auth_handler_selectors: List[Tuple[SiteName, SiteDisplayName]],
+) -> None:
+    """Load a specific auth handler, populating the dropdown and auth_handlers
+    mappings as we go. This allows users to dynamically select a specific
+    implementation when logging in or out.
+    """
+    auth_handlers[name] = subcommand_app
+    # this means anaconda-auth is available
+    if name == "auth":
+        try:
+            # Type hints are missing temporarily
+            from anaconda_auth.config import AnacondaAuthSitesConfig  # type: ignore
+
+            site_config = AnacondaAuthSitesConfig()
+            for site_name, site in site_config.sites.root.items():
+                display_name = site_name
+                if site_name != site.domain:
+                    display_name += f" ({site.domain})"
+
+                if site_name == site_config.default_site:
+                    display_name += " [cyan]\\[default][/cyan]"
+
+                auth_handlers[site_name] = subcommand_app
+                auth_handler_selectors.append((site_name, display_name))
+
+        except ImportError as e:
+            raise e
+    elif name == "cloud":
+        # This plugin alias duplicates anaconda.com, so we skip it
+        pass
+    elif alias := AUTH_HANDLER_ALIASES.get(name):
+        auth_handlers[alias] = subcommand_app
+        auth_handler_selectors.append((alias, alias))
+
+
+def _sort_selectors(
+    item: Tuple[SiteName, SiteDisplayName],
+) -> Tuple[int, Tuple[SiteName, SiteDisplayName]]:
+    name, display_name = item
+    if "default" in display_name:
+        return (0, item)
+    if display_name == "anaconda.com":
+        return (1, item)
+    if display_name == "anaconda.org":
+        return (2, item)
+    else:
+        return (3, item)
+
+
 def load_registered_subcommands(app: typer.Typer) -> None:
     """Load all subcommands from plugins."""
     subcommand_entry_points = _load_entry_points_for_group(PLUGIN_GROUP_NAME)
-    auth_handlers: Dict[str, typer.Typer] = {}
-    auth_handler_selectors: List[str] = []
+    auth_handlers: Dict[PluginName, typer.Typer] = {}
+    auth_handler_selectors: List[Tuple[SiteName, SiteDisplayName]] = []
     for name, value, subcommand_app in subcommand_entry_points:
         # Allow plugins to disable this if they explicitly want to, but otherwise make True the default
         if isinstance(subcommand_app.info.no_args_is_help, DefaultPlaceholder):
             subcommand_app.info.no_args_is_help = True
 
         if "login" in [cmd.name for cmd in subcommand_app.registered_commands]:
-            auth_handlers[name] = subcommand_app
-            alias = AUTH_HANDLER_ALIASES.get(name)
-            if alias:
-                auth_handlers[alias] = subcommand_app
-                auth_handler_selectors.append(alias)
+            _load_auth_handler(
+                subcommand_app, name, auth_handlers, auth_handler_selectors
+            )
 
         app.add_typer(
             subcommand_app,
@@ -209,9 +280,8 @@ def load_registered_subcommands(app: typer.Typer) -> None:
         )
 
     if auth_handlers:
-        auth_handlers_dropdown = sorted(auth_handler_selectors)
-
-        _load_auth_handlers(
+        auth_handlers_dropdown = sorted(auth_handler_selectors, key=_sort_selectors)
+        _add_auth_actions_to_app(
             app=app,
             auth_handlers=auth_handlers,
             auth_handlers_dropdown=auth_handlers_dropdown,
