@@ -228,7 +228,7 @@ def _load_auth_handler(
                     display_name += f" ({site.domain})"
 
                 if site_name == site_config.default_site:
-                    display_name += " [cyan]\[default][/cyan]"
+                    display_name += " [cyan]\\[default][/cyan]"
 
                 auth_handlers[site_name] = subcommand_app
                 auth_handler_selectors.append((site_name, display_name))
