@@ -191,6 +191,22 @@ def main(
         raise typer.Exit()
 
 
+# There is a duplicate main callback in anaconda-client, which is invoked when the
+# plugin is registered. This is a leftover from our migration efforts, and will be
+# removed in the next release (>1.14.0) release. However, until then, we instead just
+# disable that callback from being registered by implementing a dummy null decorator
+# that does nothing. So instead of that callback being registered, the invocation does
+# nothing. This works because the plugin registration always occurs after our "real"
+# main callback is registered above.
+def _null_decorator(*args: Any, **kwargs: Any):  # type: ignore
+    def wrapped(*args, **kwargs):  # type: ignore
+        return None
+
+    return wrapped
+
+
+app.callback = _null_decorator  # type: ignore
+
 disable_plugins = bool(os.getenv("ANACONDA_CLI_DISABLE_PLUGINS"))
 if not disable_plugins:
     load_registered_subcommands(app)
