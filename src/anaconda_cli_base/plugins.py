@@ -208,7 +208,8 @@ def _load_auth_handler(
     # this means anaconda-auth is available
     if name == "auth":
         try:
-            from anaconda_auth.config import AnacondaAuthSitesConfig
+            # Type hints are missing temporarily
+            from anaconda_auth.config import AnacondaAuthSitesConfig  # type: ignore
 
             site_config = AnacondaAuthSitesConfig()
             for site_name, site in site_config.sites.root.items():
