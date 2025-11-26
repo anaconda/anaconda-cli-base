@@ -21,6 +21,9 @@ log = logging.getLogger(__name__)
 
 PLUGIN_GROUP_NAME = "anaconda_cli.subcommand"
 
+# Plugins which are available but hidden from help text
+HIDDEN_PLUGINS = ["cloud"]
+
 
 def _load_entry_points_for_group(group: str) -> List[Tuple[str, str, typer.Typer]]:
     # The API was changed in Python 3.10, see https://docs.python.org/3/library/importlib.metadata.html#entry-points
@@ -198,7 +201,12 @@ def load_registered_subcommands(app: typer.Typer) -> None:
                 auth_handlers[alias] = subcommand_app
                 auth_handler_selectors.append(alias)
 
-        app.add_typer(subcommand_app, name=name, rich_help_panel="Plugins")
+        app.add_typer(
+            subcommand_app,
+            name=name,
+            hidden=name in HIDDEN_PLUGINS,
+            rich_help_panel="Plugins",
+        )
 
     if auth_handlers:
         auth_handlers_dropdown = sorted(auth_handler_selectors)
