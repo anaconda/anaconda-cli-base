@@ -79,7 +79,13 @@ def _select_auth_handler_and_args(
     """
     # If we use one of the legacy anaconda-client parameters, we implicitly select
     # anaconda.org for the user.
-    if hostname or username or password:
+    if (
+        hostname
+        or username
+        or password
+        or ctx.obj.params.get("site", None)
+        or ctx.obj.params.get("token", None)
+    ):
         at = "anaconda.org"
 
     # Present a picker if the user doesn't use the --at site option
