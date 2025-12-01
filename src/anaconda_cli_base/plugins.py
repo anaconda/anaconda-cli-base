@@ -92,7 +92,9 @@ def _select_auth_handler_and_args(
             (at, _) = default_auth_handler
 
     if at not in auth_handlers:
-        handlers = "".join([f"\n* {display_name}" for _, display_name in auth_handlers_dropdown])
+        handlers = "".join(
+            [f"\n* {display_name}" for _, display_name in auth_handlers_dropdown]
+        )
         msg = f"{at} is not an allowed value for --at. Use one of {handlers}"
         console.print(msg)
         raise typer.Abort()
