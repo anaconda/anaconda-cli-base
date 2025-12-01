@@ -176,7 +176,7 @@ def main(
     # Store all the top-level params on the obj attribute
     ctx.obj.params.update(ctx.params.copy())
 
-    if at is not None:
+    if at is not None and at != "anaconda.org":
         os.environ["ANACONDA_DEFAULT_SITE"] = at
 
     if show_help:

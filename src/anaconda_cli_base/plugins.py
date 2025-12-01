@@ -97,9 +97,6 @@ def _select_auth_handler_and_args(
         console.print(msg)
         raise typer.Abort()
 
-    # Set globally to propagate to site config
-    os.environ["ANACONDA_DEFAULT_SITE"] = at
-
     handler = auth_handlers[at]
 
     # Consolidate the arguments to pass into the handler function
@@ -135,9 +132,20 @@ def _select_auth_handler_and_args(
         subcommand_index = _find_subcommand_index(["login", "logout", "whoami"])
         sys.argv = sys.argv[: subcommand_index + 1] + legacy_client_args
 
+        # Now remove the '--at <value>' if it still appears in the sys.argv
+        # While still preserving any top-level args like '--verbose' or '--token <>'
+        try:
+            at_index = sys.argv.index("--at")
+            sys.argv = sys.argv[:at_index] + sys.argv[at_index + 2 :]
+        except ValueError:
+            pass
+
         args = legacy_client_args
     else:
         args = ctx.args
+
+        # Set globally to propagate to site config
+        os.environ["ANACONDA_DEFAULT_SITE"] = at
     return handler, args
 
 
