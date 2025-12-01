@@ -92,9 +92,9 @@ def _select_auth_handler_and_args(
             (at, _) = default_auth_handler
 
     if at not in auth_handlers:
-        print(
-            f"{at} is not an allowed value for --at. Use one of {auth_handlers_dropdown}"
-        )
+        handlers = "\n* ".join([h[1] for h in auth_handlers_dropdown])
+        msg = f"{at} is not an allowed value for --at. Use one of \n* {handlers}"
+        console.print(msg)
         raise typer.Abort()
 
     # Set globally to propagate to site config
