@@ -103,7 +103,7 @@ target-version = "py38"
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py{39,310,311,312,313}-{linux,macos,windows},mypy
+envlist = py{39,310,311,312,313},mypy
 isolated_build = True
 requires =
     tox-conda
@@ -116,12 +116,6 @@ python =
     3.11: py311, mypy
     3.12: py312, mypy
     3.13: py313, mypy
-
-[gh-actions:env]
-PLATFORM =
-    ubuntu-latest: linux
-    macos-latest: macos
-    windows-latest: windows
 
 [testenv]
 deps =
