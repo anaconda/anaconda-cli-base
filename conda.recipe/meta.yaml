@@ -31,6 +31,8 @@ requirements:
     - {{ dep.lower() }}
     {% endfor %}
   run_constrained:
+    # Ensure coordinated rollout of changes related to multi-site configuration
+    - anaconda-auth >=0.12.0
     # Ensure that a version of anaconda-cli-base cannot be installed if an incompatible
     # older version of anaconda-client is installed.
     - anaconda-client>=1.13.0
