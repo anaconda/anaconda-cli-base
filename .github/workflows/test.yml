@@ -26,7 +26,6 @@ jobs:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}
           miniconda-version: latest
-          auto-activate-base: true
       - name: Install testing dependencies
         shell: bash -el {0}
         run: |
