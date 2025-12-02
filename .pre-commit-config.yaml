@@ -13,10 +13,10 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.6
+    rev: v0.14.7
     hooks:
       # lint & attempt to correct failures (e.g. pyupgrade)
-      - id: ruff
+      - id: ruff-check
         args: [--fix]
       # compatible replacement for black
       - id: ruff-format
