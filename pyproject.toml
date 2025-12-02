@@ -103,7 +103,7 @@ target-version = "py38"
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py{39,310,311,312,313},mypy
+envlist = py39,py310,py311,py312,py313,mypy
 isolated_build = True
 requires =
     tox-conda
