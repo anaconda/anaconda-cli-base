@@ -79,7 +79,13 @@ def _select_auth_handler_and_args(
     """
     # If we use one of the legacy anaconda-client parameters, we implicitly select
     # anaconda.org for the user.
-    if hostname or username or password:
+    if (
+        hostname
+        or username
+        or password
+        or ctx.obj.params.get("site", None)
+        or ctx.obj.params.get("token", None)
+    ):
         at = "anaconda.org"
 
     # Present a picker if the user doesn't use the --at site option
@@ -98,9 +104,6 @@ def _select_auth_handler_and_args(
         msg = f"{at} is not an allowed value for --at. Use one of {handlers}"
         console.print(msg)
         raise typer.Abort()
-
-    # Set globally to propagate to site config
-    os.environ["ANACONDA_DEFAULT_SITE"] = at
 
     handler = auth_handlers[at]
 
@@ -137,9 +140,20 @@ def _select_auth_handler_and_args(
         subcommand_index = _find_subcommand_index(["login", "logout", "whoami"])
         sys.argv = sys.argv[: subcommand_index + 1] + legacy_client_args
 
+        # Now remove the '--at <value>' if it still appears in the sys.argv
+        # While still preserving any top-level args like '--verbose' or '--token <>'
+        try:
+            at_index = sys.argv.index("--at")
+            sys.argv = sys.argv[:at_index] + sys.argv[at_index + 2 :]
+        except ValueError:
+            pass
+
         args = legacy_client_args
     else:
         args = ctx.args
+
+        # Set globally to propagate to site config
+        os.environ["ANACONDA_DEFAULT_SITE"] = at
     return handler, args
 
 
