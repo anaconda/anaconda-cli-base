@@ -32,7 +32,7 @@ jobs:
           pip install tox tox-conda tox-gh-actions
       - name: Test with tox
         shell: bash -el {0}
-        run: tox -vv
+        run: tox
 
   build-conda-package:
     name: Build conda package
