@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from textwrap import dedent
 from typing import Optional, Tuple, cast, Dict
@@ -222,7 +223,10 @@ def test_settings_toml_error(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     with pytest.raises(AnacondaConfigTomlSyntaxError) as excinfo:
         _ = DerivedSettings()
 
-    assert "/config.toml: Unclosed array (at line 3, column 1)" in excinfo.value.args[0]
+    assert (
+        f"{os.sep}config.toml: Unclosed array (at line 3, column 1)"
+        in excinfo.value.args[0]
+    )
 
 
 def test_settings_validation_error(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
@@ -243,8 +247,11 @@ def test_settings_validation_error(monkeypatch: MonkeyPatch, tmp_path: Path) -> 
         _ = DerivedSettings(not_required=3)  # type: ignore
 
     message = excinfo.value.args[0]
-    assert "/config.toml in [plugin.derived] for foo = 1" in message
-    assert "/config.toml in [plugin.derived] for nested.field = [0, 1, 2]" in message
+    assert f"{os.sep}config.toml in [plugin.derived] for foo = 1" in message
+    assert (
+        f"{os.sep}config.toml in [plugin.derived] for nested.field = [0, 1, 2]"
+        in message
+    )
     assert (
         "Error in environment variable ANACONDA_DERIVED_OPTIONAL=not-an-integer"
         in message
@@ -301,13 +308,14 @@ def test_error_handled(
 
     result = invoke_cli(["config-error", "syntax-error"])
     assert result.exit_code == 1
-    assert "/config.toml: Unclosed array (at line 3, column 1)" in result.stdout
+    assert f"{os.sep}config.toml: Unclosed array (at line 3, column 1)" in result.stdout
 
     result = invoke_cli(["config-error", "validation-error"])
     assert result.exit_code == 1
-    assert "/config.toml in [plugin.derived] for foo = 1" in result.stdout
+    assert f"{os.sep}config.toml in [plugin.derived] for foo = 1" in result.stdout
     assert (
-        "/config.toml in [plugin.derived] for nested.field = [0, 1, 2]" in result.stdout
+        f"{os.sep}config.toml in [plugin.derived] for nested.field = [0, 1, 2]"
+        in result.stdout
     )
     assert (
         "Error in environment variable ANACONDA_DERIVED_OPTIONAL=not-an-integer"

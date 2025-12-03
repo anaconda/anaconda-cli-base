@@ -672,24 +672,48 @@ def test_error_handled(
 
 
 @pytest.mark.parametrize(
-    "options, expected_handler, expected_args",
+    "options, top_options, expected_handler, expected_args",
     [
-        pytest.param({"at": "anaconda.com"}, "dot-com-handler", [], id="dot-com-at"),
-        pytest.param({"at": "anaconda.org"}, "dot-org-handler", [], id="dot-org-at"),
+        pytest.param(
+            {}, {"at": "anaconda.com"}, "dot-com-handler", [], id="dot-com-top-at"
+        ),
+        pytest.param(
+            {}, {"at": "anaconda.org"}, "dot-org-handler", [], id="dot-org-top-at"
+        ),
+        pytest.param(
+            {},
+            {"at": "anaconda.org", "site": "foo"},
+            "dot-org-handler",
+            [],
+            id="dot-org-top-at-site",
+        ),
+        pytest.param({}, {"site": "foo"}, "dot-org-handler", [], id="dot-org-top-site"),
+        pytest.param(
+            {}, {"token": "foo"}, "dot-org-handler", [], id="dot-org-top-token"
+        ),
+        pytest.param(
+            {"at": "anaconda.com"}, {}, "dot-com-handler", [], id="dot-com-at"
+        ),
+        pytest.param(
+            {"at": "anaconda.org"}, {}, "dot-org-handler", [], id="dot-org-at"
+        ),
         pytest.param(
             {"username": "some-user"},
+            {},
             "dot-org-handler",
             ["--username", "some-user"],
             id="dot-org-username",
         ),
         pytest.param(
             {"username": "some-user", "password": "secret-password"},
+            {},
             "dot-org-handler",
             ["--username", "some-user", "--password", "secret-password"],
             id="dot-org-username-password",
         ),
         pytest.param(
             {"hostname": "some-hostname"},
+            {},
             "dot-org-handler",
             ["--hostname", "some-hostname"],
             id="dot-org-hostname",
@@ -698,19 +722,26 @@ def test_error_handled(
 )
 def test_select_auth_handler_and_args(
     options: dict[str, str],
+    top_options: dict[str, str],
     expected_handler: str,
     expected_args: list[str],
     *,
     monkeypatch: MonkeyPatch,
 ) -> None:
     # Build a list like ["--at", "anaconda.org"] from the dictionary
-    options_list = list(
-        itertools.chain.from_iterable(
-            [f"--{option}", value] for option, value in options.items()
+    def make_options_list(options: dict[str, str]) -> list[str]:
+        return list[str](
+            itertools.chain.from_iterable(
+                [f"--{option}", value] for option, value in options.items()
+            )
         )
-    )
+
+    options_list = make_options_list(options)
+    top_options_list = make_options_list(top_options)
     # Patch the sys args
-    monkeypatch.setattr(sys, "argv", ["/path/to/anaconda", "login"] + options_list)
+    monkeypatch.setattr(
+        sys, "argv", ["/path/to/anaconda", *top_options_list, "login"] + options_list
+    )
 
     # Construct a mapping of auth handlers, normally would be loaded via plugins
     dummy_auth_handlers = {
@@ -721,6 +752,11 @@ def test_select_auth_handler_and_args(
     # Mock the context since we're not really calling the CLI
     ctx_mock = MagicMock()
     ctx_mock.args = []
+    ctx_mock.obj.params = {}
+    if "site" in top_options:
+        ctx_mock.obj.params["site"] = top_options["site"]
+    if "token" in top_options:
+        ctx_mock.obj.params["token"] = top_options["token"]
 
     # Build the four possible options into a dictionary with defaults
     option_defaults = {
@@ -730,10 +766,14 @@ def test_select_auth_handler_and_args(
         "hostname": None,
     }
 
+    top_options_copy = top_options.copy()
+    _ = top_options_copy.pop("site", None)
+    _ = top_options_copy.pop("token", None)
+
     # Invoke the function
     handler, args = _select_auth_handler_and_args(
         ctx=ctx_mock,
-        **{**option_defaults, **options},
+        **{**option_defaults, **options, **top_options_copy},
         help=False,
         auth_handlers=dummy_auth_handlers,  # type: ignore
         auth_handlers_dropdown=[],
