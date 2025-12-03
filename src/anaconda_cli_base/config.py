@@ -152,6 +152,7 @@ class AnacondaBaseSettings(BaseSettings):
 
     def write_config(
         self,
+        dry_run: bool = False,
         include: Optional[IncEx] = None,
         exclude: Optional[IncEx] = None,
         exclude_unset: bool = True,
@@ -180,7 +181,28 @@ class AnacondaBaseSettings(BaseSettings):
         for key in header:
             config = config.get(key, tomlkit.table())
 
-        config.update(values)
+        to_write = config.copy()
+        to_write.update(values)
+
+        if dry_run:
+            import difflib
+            from rich.syntax import Syntax
+            from .console import console
+
+            original = config.as_string()
+            updated = to_write.as_string()
+
+            diffs = difflib.unified_diff(
+                original.splitlines(True),
+                updated.splitlines(True),
+                fromfile=str(anaconda_config_path()),
+                lineterm="",
+            )
+            diff = "".join(diffs)
+
+            syntax = Syntax(code=diff, lexer="diff", line_numbers=True, word_wrap=True)
+            console.print(syntax)
+            return
 
         with open(config_toml, "wt") as f:
             config = tomlkit.dump(config, f)
