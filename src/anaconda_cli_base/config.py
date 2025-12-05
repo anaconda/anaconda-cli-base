@@ -3,6 +3,7 @@ import sys
 
 from functools import cached_property
 from pathlib import Path
+from shutil import copy
 from typing import Any
 from typing import ClassVar
 from typing import Dict
@@ -11,7 +12,9 @@ from typing import Tuple
 from typing import Type
 from typing import Union
 
+import tomlkit
 from pydantic import ValidationError
+from pydantic.main import IncEx
 from pydantic_settings import BaseSettings
 from pydantic_settings import PydanticBaseSettingsSource
 from pydantic_settings import PyprojectTomlConfigSettingsSource
@@ -146,3 +149,65 @@ class AnacondaBaseSettings(BaseSettings):
             dotenv_settings,
             AnacondaConfigTomlSettingsSource(settings_cls, anaconda_config_path()),
         )
+
+    def write_config(
+        self,
+        dry_run: bool = False,
+        include: Optional[IncEx] = None,
+        exclude: Optional[IncEx] = None,
+        exclude_unset: bool = True,
+        exclude_defaults: bool = True,
+        exclude_none: bool = True,
+    ) -> None:
+        header = self.model_config.get("pyproject_toml_table_header", "")
+
+        values = self.model_dump(
+            include=include,
+            exclude=exclude,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+            exclude_computed_fields=True,
+        )
+
+        # save a backup of the config.toml just to be safe
+        config_toml = anaconda_config_path()
+        if config_toml.exists():
+            copy(config_toml, config_toml.with_suffix(".backup.toml"))
+
+        with open(config_toml, "rt") as f:
+            config = tomlkit.load(f)
+
+        for key in header:
+            config = config.get(key, tomlkit.table())
+
+        to_write = config.copy()
+        to_write.update(values)
+
+        if dry_run:
+            import difflib
+            from rich.syntax import Syntax
+            from .console import console
+
+            original = config.as_string()
+            updated = to_write.as_string()
+
+            diffs = difflib.unified_diff(
+                original.splitlines(True),
+                updated.splitlines(True),
+                fromfile=str(anaconda_config_path()),
+                lineterm="",
+            )
+            diff = "".join(diffs)
+            if not diff:
+                console.print(
+                    f"[bold green]No change to {anaconda_config_path()}[/bold green]"
+                )
+                return
+
+            syntax = Syntax(code=diff, lexer="diff", line_numbers=True, word_wrap=True)
+            console.print(syntax)
+            return
+
+        with open(config_toml, "wt") as f:
+            config = tomlkit.dump(config, f)

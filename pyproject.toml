@@ -10,7 +10,8 @@ dependencies = [
   "typer >=0.17",
   "packaging >=23.0",
   "pydantic-settings >=2.3",
-  "tomli"
+  "tomli",
+  "tomlkit"
 ]
 description = "A base CLI entrypoint supporting Anaconda CLI plugins"
 dynamic = ["version"]
