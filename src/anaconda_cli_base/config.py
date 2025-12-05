@@ -199,6 +199,11 @@ class AnacondaBaseSettings(BaseSettings):
                 lineterm="",
             )
             diff = "".join(diffs)
+            if not diff:
+                console.print(
+                    f"[bold green]No change to {anaconda_config_path()}[/bold green]"
+                )
+                return
 
             syntax = Syntax(code=diff, lexer="diff", line_numbers=True, word_wrap=True)
             console.print(syntax)
