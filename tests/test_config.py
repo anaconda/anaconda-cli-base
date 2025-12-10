@@ -355,6 +355,14 @@ class Plugin(AnacondaBaseSettings, plugin_name="plugged"):
     table: Optional[Dict[str, str]] = None
 
 
+def test_write_new_plugin_table_defaults_no_existing_file(config_toml: Path) -> None:
+    plugged = Plugin()
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == "[plugin.plugged]\n"
+
+
 def test_write_new_plugin_table_no_existing_file(config_toml: Path) -> None:
     plugged = Plugin(foo="foo")
     plugged.write_config()
