@@ -387,6 +387,30 @@ def test_write_new_plugin_table_existing_file(config_toml: Path) -> None:
     )
 
 
+def test_write_plugin_revert_to_default(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            [plugin.plugged]
+            foo = "foo"
+            """
+        )
+    )
+
+    plugged = Plugin()
+    assert plugged.foo == "foo"
+
+    plugged.foo = "bar"
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+            [plugin.plugged]
+            """
+    )
+
+
 def test_write_nesting_update(config_toml: Path) -> None:
     config_toml.write_text(
         dedent(
