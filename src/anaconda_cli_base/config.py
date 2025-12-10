@@ -1,9 +1,13 @@
 import os
 import sys
+from collections import deque
 
-from functools import cached_property
+from copy import deepcopy
+from functools import cached_property, reduce
+from operator import getitem
 from pathlib import Path
 from shutil import copy
+from tomlkit.toml_document import TOMLDocument
 from typing import Any
 from typing import ClassVar
 from typing import Dict
@@ -155,12 +159,10 @@ class AnacondaBaseSettings(BaseSettings):
         dry_run: bool = False,
         include: Optional[IncEx] = None,
         exclude: Optional[IncEx] = None,
-        exclude_unset: bool = True,
+        exclude_unset: bool = False,
         exclude_defaults: bool = True,
         exclude_none: bool = True,
     ) -> None:
-        header = self.model_config.get("pyproject_toml_table_header", "")
-
         values = self.model_dump(
             include=include,
             exclude=exclude,
@@ -178,11 +180,38 @@ class AnacondaBaseSettings(BaseSettings):
         with open(config_toml, "rt") as f:
             config = tomlkit.load(f)
 
-        for key in header:
-            config = config.get(key, tomlkit.table())
+        to_update = deepcopy(config)
 
-        to_write = config.copy()
-        to_write.update(values)
+        table_header = self.model_config.get("pyproject_toml_table_header", None)
+        if table_header:
+            parent = reduce(getitem, table_header, to_update)
+        else:
+            parent = to_update
+
+        def deepmerge(
+            orig: tomlkit.TOMLDocument,
+            new: tomlkit.TOMLDocument,
+            allow_removal: bool = True,
+        ):
+            stack = deque[Tuple[TOMLDocument, TOMLDocument]]([(orig, new)])
+            while stack:
+                current_original, current_update = stack.popleft()
+
+                if allow_removal:
+                    removed_keys = (
+                        current_original.keys() - current_update.keys() - {"plugin"}
+                    )
+                    for k in removed_keys:
+                        del current_original[k]
+
+                for k, v in current_update.items():
+                    if isinstance(v, dict):
+                        to_append = (current_original.get(k, None), v)
+                        stack.append(to_append)
+                    else:
+                        current_original[k] = v
+
+        deepmerge(parent, values)
 
         if dry_run:
             import difflib
@@ -190,7 +219,7 @@ class AnacondaBaseSettings(BaseSettings):
             from .console import console
 
             original = config.as_string()
-            updated = to_write.as_string()
+            updated = to_update.as_string()
 
             diffs = difflib.unified_diff(
                 original.splitlines(True),
