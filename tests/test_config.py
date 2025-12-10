@@ -1,6 +1,7 @@
+import sys
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional, Tuple, cast, Dict
+from typing import Optional, Tuple, cast, Dict, Generator
 
 import pytest
 import typer
@@ -14,6 +15,11 @@ from anaconda_cli_base.config import AnacondaConfigTomlSettingsSource
 from anaconda_cli_base.exceptions import AnacondaConfigTomlSyntaxError
 from anaconda_cli_base.exceptions import AnacondaConfigValidationError
 from anaconda_cli_base.plugins import load_registered_subcommands
+
+if sys.version_info >= (3, 11):
+    pass
+else:
+    pass
 
 from .conftest import CLIInvoker
 
@@ -316,22 +322,217 @@ def test_error_handled(
     assert "Error in init kwarg DerivedSettings(not_required=3)" in result.stdout
 
 
-def test_root_level_table(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+@pytest.fixture
+def config_toml(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> Generator[Path, None, None]:
     config_file = tmp_path / "config.toml"
     monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
+    yield config_file
 
+
+def test_root_level_table(config_toml: Path) -> None:
     class RootLevelTable(AnacondaBaseSettings, plugin_name=None):
         foo: str = "bar"
         table: Optional[Dict[str, str]] = None
 
-    config_file.write_text(
+    config_toml.write_text(
         dedent("""\
-        foo = "baz"
-        [table]
-        key = "value"
-    """)
+            foo = "baz"
+            [table]
+            key = "value"
+        """)
     )
 
     config = RootLevelTable()
     assert config.table == {"key": "value"}
     assert config.foo == "baz"
+
+
+class Plugin(AnacondaBaseSettings, plugin_name="plugged"):
+    foo: str = "bar"
+    table: Optional[Dict[str, str]] = None
+
+
+def test_write_new_plugin_table_no_existing_file(config_toml: Path) -> None:
+    plugged = Plugin(foo="foo")
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == '[plugin.plugged]\nfoo = "foo"\n'
+
+
+def test_write_new_plugin_table_existing_file(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            [plugin.other]
+            key = "value"
+            """
+        )
+    )
+
+    plugged = Plugin(foo="foo")
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+            [plugin.other]
+            key = "value"
+
+            [plugin.plugged]
+            foo = "foo"
+            """
+    )
+
+
+def test_write_nesting_update(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+            """
+        )
+    )
+
+    plugged = Plugin()
+    assert plugged.foo == "foo"
+
+    plugged.table = {"key": "value"}
+
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.table]
+            key = "value"
+            """
+    )
+
+
+def test_write_remove_nesting_table(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.table]
+            key = "value"
+            """
+        )
+    )
+
+    plugged = Plugin()
+    assert plugged.foo == "foo"
+    assert plugged.table == {"key": "value"}
+
+    plugged.table = None
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            """
+    )
+
+
+class RootConfig(AnacondaBaseSettings, plugin_name=None):
+    foo: str = "bar"
+    table: Optional[Dict[str, str]] = None
+
+
+def test_write_root_level_key(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.table]
+            key = "value"
+            """
+        )
+    )
+
+    root = RootConfig(foo="root")
+
+    root.write_config()
+
+    contents = config_toml.read_text()
+
+    assert contents == dedent(
+        """\
+            # a comment
+            foo = "root"
+
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.table]
+            key = "value"
+            """
+    )
+
+
+def test_write_root_level_update(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            # a comment
+            foo = "root"
+
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.table]
+            key = "value"
+            """
+        )
+    )
+
+    root = RootConfig()
+    assert root.foo == "root"
+
+    root.table = {"key": "set-at-root"}
+    root.write_config()
+
+    contents = config_toml.read_text()
+
+    assert contents == dedent(
+        """\
+            # a comment
+            foo = "root"
+
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.table]
+            key = "value"
+
+            [table]
+            key = "set-at-root"
+            """
+    )
