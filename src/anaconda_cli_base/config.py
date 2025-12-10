@@ -4,7 +4,6 @@ from collections import deque
 
 from copy import deepcopy
 from functools import cached_property, reduce
-from operator import getitem
 from pathlib import Path
 from shutil import copy
 from tomlkit.toml_document import TOMLDocument
@@ -177,14 +176,24 @@ class AnacondaBaseSettings(BaseSettings):
         if config_toml.exists():
             copy(config_toml, config_toml.with_suffix(".backup.toml"))
 
-        with open(config_toml, "rt") as f:
-            config = tomlkit.load(f)
+            with open(config_toml, "rt") as f:
+                config = tomlkit.load(f)
+        else:
+            config_toml.parent.mkdir(parents=True, exist_ok=True)
+            config = tomlkit.TOMLDocument()
 
         to_update = deepcopy(config)
 
-        table_header = self.model_config.get("pyproject_toml_table_header", None)
+        table_header = self.model_config.get("pyproject_toml_table_header", tuple())
+
         if table_header:
-            parent = reduce(getitem, table_header, to_update)
+
+            def nestitem(a: tomlkit.TOMLDocument(), b: Any) -> Any:
+                if b not in a:
+                    a.add(b, tomlkit.table())
+                return a[b]
+
+            parent = reduce(nestitem, table_header, to_update)
         else:
             parent = to_update
 
@@ -197,7 +206,7 @@ class AnacondaBaseSettings(BaseSettings):
             while stack:
                 current_original, current_update = stack.popleft()
 
-                if allow_removal:
+                if allow_removal and current_original:
                     removed_keys = (
                         current_original.keys() - current_update.keys() - {"plugin"}
                     )
@@ -206,7 +215,9 @@ class AnacondaBaseSettings(BaseSettings):
 
                 for k, v in current_update.items():
                     if isinstance(v, dict):
-                        to_append = (current_original.get(k, None), v)
+                        if k not in current_original:
+                            current_original.add(k, tomlkit.table())
+                        to_append = (current_original.get(k), v)
                         stack.append(to_append)
                     else:
                         current_original[k] = v
@@ -239,4 +250,4 @@ class AnacondaBaseSettings(BaseSettings):
             return
 
         with open(config_toml, "wt") as f:
-            config = tomlkit.dump(config, f)
+            tomlkit.dump(to_update, f)
