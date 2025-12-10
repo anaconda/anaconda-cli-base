@@ -158,7 +158,7 @@ class AnacondaBaseSettings(BaseSettings):
         dry_run: bool = False,
         include: Optional[IncEx] = None,
         exclude: Optional[IncEx] = None,
-        exclude_unset: bool = False,
+        exclude_unset: bool = True,
         exclude_defaults: bool = True,
         exclude_none: bool = True,
     ) -> None:
