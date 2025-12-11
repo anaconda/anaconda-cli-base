@@ -207,7 +207,7 @@ class AnacondaBaseSettings(BaseSettings):
             new: Dict[str, Any],
             allow_removal: bool = True,
         ) -> None:
-            stack = deque[Tuple[TOMLDocument, TOMLDocument]]([(orig, new)])
+            stack = deque[Tuple[TOMLDocument, Dict[str, Any]]]([(orig, new)])
             while stack:
                 current_original, current_update = stack.popleft()
 
