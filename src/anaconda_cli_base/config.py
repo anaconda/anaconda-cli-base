@@ -231,26 +231,41 @@ class AnacondaBaseSettings(BaseSettings):
 
         if dry_run:
             import difflib
+            import datetime as dt
             from rich.syntax import Syntax
             from .console import console
 
             original = config.as_string()
             updated = to_update.as_string()
 
+            dt_format = "%m-%d-%y %H:%M"
+            config_toml = anaconda_config_path()
+            if config_toml.exists():
+                modified = dt.datetime.fromtimestamp(
+                    config_toml.stat().st_mtime
+                ).strftime(dt_format)
+            else:
+                modified = ""
+
+            now = dt.datetime.now().strftime(dt_format)
+
             diffs = difflib.unified_diff(
-                original.splitlines(True),
-                updated.splitlines(True),
-                fromfile=str(anaconda_config_path()),
+                original.splitlines(False),
+                updated.splitlines(False),
+                fromfile=str(config_toml),
+                fromfiledate=modified,
+                tofile=str(config_toml),
+                tofiledate=now,
                 lineterm="",
             )
-            diff = "".join(diffs)
+            diff = "\n".join(diffs)
             if not diff:
                 console.print(
                     f"[bold green]No change to {anaconda_config_path()}[/bold green]"
                 )
                 return
 
-            syntax = Syntax(code=diff, lexer="diff", line_numbers=True, word_wrap=True)
+            syntax = Syntax(code=diff, lexer="diff", line_numbers=False, word_wrap=True)
             console.print(syntax)
             return
 
