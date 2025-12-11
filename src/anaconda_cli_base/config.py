@@ -204,7 +204,7 @@ class AnacondaBaseSettings(BaseSettings):
 
         def deepmerge(
             orig: tomlkit.TOMLDocument,
-            new: tomlkit.TOMLDocument,
+            new: Dict[str, Any],
             allow_removal: bool = True,
         ) -> None:
             stack = deque[Tuple[TOMLDocument, TOMLDocument]]([(orig, new)])
