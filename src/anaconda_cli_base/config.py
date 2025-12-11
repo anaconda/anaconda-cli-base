@@ -211,7 +211,7 @@ class AnacondaBaseSettings(BaseSettings):
             while stack:
                 current_original, current_update = stack.popleft()
 
-                if allow_removal and current_original:
+                if allow_removal:
                     removed_keys = (
                         current_original.keys() - current_update.keys() - {"plugin"}
                     )

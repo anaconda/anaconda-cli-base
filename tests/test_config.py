@@ -507,6 +507,27 @@ def test_write_remove_nesting_table(config_toml: Path) -> None:
     )
 
 
+def test_write_remove_plugin(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            [plugin.plugged]
+            foo = "foo"
+
+            [plugin.plugged.table]
+            key = "value"
+            """
+        )
+    )
+
+    plugin = Plugin(foo="bar", table=None)
+
+    plugin.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == "[plugin.plugged]\n\n"
+
+
 class RootConfig(AnacondaBaseSettings, plugin_name=None):
     foo: str = "bar"
     table: Optional[Dict[str, str]] = None
@@ -589,6 +610,23 @@ def test_write_root_level_update(config_toml: Path) -> None:
             key = "set-at-root"
             """
     )
+
+
+def test_remove_root_level_table(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            [table]
+            key = "set-at-root"
+            """
+        )
+    )
+
+    root = RootConfig(table=None)
+    root.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == ""
 
 
 def test_write_validation_error(config_toml: Path) -> None:
