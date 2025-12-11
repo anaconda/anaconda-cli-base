@@ -593,7 +593,7 @@ def test_write_root_level_update(config_toml: Path) -> None:
 
 def test_write_validation_error(config_toml: Path) -> None:
     plugin = Plugin()
-    plugin.foo = False
+    plugin.foo = False  # type: ignore
 
     with pytest.raises(ValidationError):
         plugin.write_config()

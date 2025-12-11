@@ -193,7 +193,7 @@ class AnacondaBaseSettings(BaseSettings):
 
         if table_header:
 
-            def nestitem(a: tomlkit.TOMLDocument(), b: Any) -> Any:
+            def nestitem(a: tomlkit.TOMLDocument, b: Any) -> Any:
                 if b not in a:
                     a.add(b, tomlkit.table())
                 return a[b]
@@ -206,7 +206,7 @@ class AnacondaBaseSettings(BaseSettings):
             orig: tomlkit.TOMLDocument,
             new: tomlkit.TOMLDocument,
             allow_removal: bool = True,
-        ):
+        ) -> None:
             stack = deque[Tuple[TOMLDocument, TOMLDocument]]([(orig, new)])
             while stack:
                 current_original, current_update = stack.popleft()
@@ -223,7 +223,7 @@ class AnacondaBaseSettings(BaseSettings):
                         if k not in current_original:
                             current_original.add(k, tomlkit.table())
                         to_append = (current_original.get(k), v)
-                        stack.append(to_append)
+                        stack.append(to_append)  # type: ignore
                     else:
                         current_original[k] = v
 
