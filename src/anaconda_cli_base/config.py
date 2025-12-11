@@ -158,7 +158,7 @@ class AnacondaBaseSettings(BaseSettings):
         dry_run: bool = False,
         include: Optional[IncEx] = None,
         exclude: Optional[IncEx] = None,
-        exclude_unset: bool = True,
+        exclude_unset: bool = False,
         exclude_defaults: bool = True,
         exclude_none: bool = True,
     ) -> None:
@@ -175,6 +175,7 @@ class AnacondaBaseSettings(BaseSettings):
         # set manually on the instance are correct before
         # writing to config.toml
         self.model_validate(values)
+        print(values)
 
         # save a backup of the config.toml just to be safe
         config_toml = anaconda_config_path()

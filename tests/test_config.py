@@ -569,6 +569,24 @@ def test_write_root_level_key(config_toml: Path) -> None:
     )
 
 
+def test_write_nested_update(config_toml: Path) -> None:
+    class Nested(AnacondaBaseSettings, plugin_name="nested"):
+        foo: str = "bar"
+        table: Dict[str, str] = {}
+
+    nested = Nested()
+    nested.table["key"] = "value"
+
+    nested.write_config()
+
+    contents = config_toml.read_text()
+
+    assert contents == dedent("""\
+        [plugin.nested.table]
+        key = "value"
+        """)
+
+
 def test_write_root_level_update(config_toml: Path) -> None:
     config_toml.write_text(
         dedent(
