@@ -6,6 +6,7 @@ from typing import Optional, Tuple, cast, Dict, Generator
 import pytest
 import typer
 from pydantic import BaseModel
+from pydantic import ValidationError
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
 
@@ -580,3 +581,11 @@ def test_write_root_level_update(config_toml: Path) -> None:
             key = "set-at-root"
             """
     )
+
+
+def test_write_validation_error(config_toml: Path) -> None:
+    plugin = Plugin()
+    plugin.foo = False
+
+    with pytest.raises(ValidationError):
+        plugin.write_config()

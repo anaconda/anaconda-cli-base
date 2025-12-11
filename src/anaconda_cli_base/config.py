@@ -171,6 +171,11 @@ class AnacondaBaseSettings(BaseSettings):
             exclude_computed_fields=True,
         )
 
+        # Validation of the dump ensures that attributes
+        # set manually on the instance are correct before
+        # writing to config.toml
+        self.model_validate(values)
+
         # save a backup of the config.toml just to be safe
         config_toml = anaconda_config_path()
         if config_toml.exists():
