@@ -175,7 +175,6 @@ class AnacondaBaseSettings(BaseSettings):
         # set manually on the instance are correct before
         # writing to config.toml
         self.model_validate(values)
-        print(values)
 
         # save a backup of the config.toml just to be safe
         config_toml = anaconda_config_path()
