@@ -1,5 +1,4 @@
 import os
-import sys
 from pathlib import Path
 from textwrap import dedent
 from typing import Optional, Tuple, cast, Dict, Generator
@@ -17,11 +16,6 @@ from anaconda_cli_base.config import AnacondaConfigTomlSettingsSource
 from anaconda_cli_base.exceptions import AnacondaConfigTomlSyntaxError
 from anaconda_cli_base.exceptions import AnacondaConfigValidationError
 from anaconda_cli_base.plugins import load_registered_subcommands
-
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
 
 from .conftest import CLIInvoker
 
