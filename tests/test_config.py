@@ -369,7 +369,10 @@ def test_write_new_plugin_table_no_existing_file(config_toml: Path) -> None:
     plugged.write_config()
 
     contents = config_toml.read_text()
-    assert contents == '[plugin.plugged]\nfoo = "foo"\n'
+    assert contents == dedent("""\
+        [plugin.plugged]
+        foo = "foo"
+    """)
 
 
 @pytest.mark.xfail(reason="TOML does not have `null` values")
@@ -380,7 +383,10 @@ def test_write_new_plugin_table_no_existing_file_without_null(
     plugged.write_config(exclude_none=False)
 
     contents = config_toml.read_text()
-    assert contents == '[plugin.plugged]\nfoo = "foo"\n'
+    assert contents == dedent("""\
+        [plugin.plugged]
+        foo = "foo"
+    """)
 
 
 def test_write_new_plugin_table_existing_file(config_toml: Path) -> None:
