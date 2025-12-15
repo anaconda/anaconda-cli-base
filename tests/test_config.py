@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional, Tuple, cast, Dict, Generator
+from typing import Optional, Tuple, cast, Dict, Iterator
 
 import pytest
 import typer
@@ -326,9 +326,7 @@ def test_error_handled(
 
 
 @pytest.fixture
-def config_toml(
-    tmp_path: Path, monkeypatch: MonkeyPatch
-) -> Generator[Path, None, None]:
+def config_toml(tmp_path: Path, monkeypatch: MonkeyPatch) -> Iterator[Path]:
     config_file = tmp_path / "config.toml"
     monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
     yield config_file
