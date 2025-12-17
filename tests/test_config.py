@@ -375,12 +375,11 @@ def test_write_new_plugin_table_no_existing_file(config_toml: Path) -> None:
     """)
 
 
-@pytest.mark.xfail(reason="TOML does not have `null` values")
 def test_write_new_plugin_table_no_existing_file_without_null(
     config_toml: Path,
 ) -> None:
     plugged = Plugin(foo="foo", might_be_none=None)
-    plugged.write_config(exclude_none=False)
+    plugged.write_config()
 
     contents = config_toml.read_text()
     assert contents == dedent("""\
