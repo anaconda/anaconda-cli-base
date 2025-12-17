@@ -17,7 +17,6 @@ from typing import Union
 
 import tomlkit
 from pydantic import ValidationError
-from pydantic.main import IncEx
 from pydantic_settings import BaseSettings
 from pydantic_settings import PydanticBaseSettingsSource
 from pydantic_settings import PyprojectTomlConfigSettingsSource
@@ -156,18 +155,11 @@ class AnacondaBaseSettings(BaseSettings):
     def write_config(
         self,
         dry_run: bool = False,
-        include: Optional[IncEx] = None,
-        exclude: Optional[IncEx] = None,
-        exclude_unset: bool = False,
-        exclude_defaults: bool = True,
-        exclude_none: bool = True,
     ) -> None:
         values = self.model_dump(
-            include=include,
-            exclude=exclude,
-            exclude_unset=exclude_unset,
-            exclude_defaults=exclude_defaults,
-            exclude_none=exclude_none,
+            exclude_unset=False,
+            exclude_defaults=True,
+            exclude_none=True,
             exclude_computed_fields=True,
         )
 
