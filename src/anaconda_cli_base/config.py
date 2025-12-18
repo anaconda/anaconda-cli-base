@@ -157,6 +157,34 @@ class AnacondaBaseSettings(BaseSettings):
         self,
         dry_run: bool = False,
     ) -> None:
+        """
+        Write the current configuration to the Anaconda config.toml file.
+
+        This method writes the configuration instance to the config.toml file,
+        preserving existing comments and formatting. Only non-default and non-None
+        values are written. If a value is set to its default, the corresponding
+        entry is removed from the config file.
+
+        The write operation is atomic - the config file is only updated if the
+        entire write succeeds, preventing corruption from interrupted writes.
+
+        Args:
+            dry_run: If True, displays a diff of proposed changes without writing
+                to the file. If False (default), writes changes to config.toml.
+
+        Raises:
+            ValidationError: If any attribute has been manually set to an invalid
+                value that fails pydantic validation.
+
+        Behavior:
+            - Creates ~/.anaconda/config.toml if it doesn't exist
+            - Creates a backup at ~/.anaconda/config.backup.toml before writing
+            - Preserves comments and formatting in existing config
+            - Only writes non-default, non-None values
+            - Removes keys when values are set to their defaults
+            - Validates all values before writing
+            - Uses atomic write to prevent file corruption
+        """
         values = self.model_dump(
             exclude_unset=False,
             exclude_defaults=True,
