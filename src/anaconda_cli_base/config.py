@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 from collections import deque
 
 from copy import deepcopy
@@ -261,5 +262,23 @@ class AnacondaBaseSettings(BaseSettings):
             console.print(syntax)
             return
 
-        with open(config_toml, "wt") as f:
-            tomlkit.dump(to_update, f)
+        # Use atomic write to prevent corruption if write fails
+        # Write to temp file in same directory, then atomically rename
+        tmp_fd, tmp_path = tempfile.mkstemp(
+            dir=config_toml.parent,
+            prefix=".config_",
+            suffix=".toml.tmp",
+            text=True,
+        )
+        try:
+            with os.fdopen(tmp_fd, "wt") as f:
+                tomlkit.dump(to_update, f)
+            # Atomic rename - if this fails, original file is untouched
+            os.replace(tmp_path, config_toml)
+        except Exception:
+            # Clean up temp file if write or rename failed
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
