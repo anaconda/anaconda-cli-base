@@ -175,6 +175,9 @@ class AnacondaBaseSettings(BaseSettings):
         Raises:
             ValidationError: If any attribute has been manually set to an invalid
                 value that fails pydantic validation.
+            OSError: If backup creation fails, config file cannot be read, or
+                config directory cannot be created due to permissions or I/O errors.
+            ValueError: If the existing config.toml contains invalid TOML syntax.
 
         Behavior:
             - Creates ~/.anaconda/config.toml if it doesn't exist
@@ -200,12 +203,31 @@ class AnacondaBaseSettings(BaseSettings):
         # save a backup of the config.toml just to be safe
         config_toml = anaconda_config_path()
         if config_toml.exists():
-            copy(config_toml, config_toml.with_suffix(".backup.toml"))
+            backup_path = config_toml.with_suffix(".backup.toml")
+            try:
+                copy(config_toml, backup_path)
+            except (OSError, IOError) as e:
+                raise OSError(
+                    f"Failed to create backup of {config_toml} at {backup_path}: {e}"
+                ) from e
 
-            with open(config_toml, "rt") as f:
-                config = tomlkit.load(f)
+            try:
+                with open(config_toml, "rt") as f:
+                    config = tomlkit.load(f)
+            except (OSError, IOError) as e:
+                raise OSError(f"Failed to read {config_toml}: {e}") from e
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to parse {config_toml} as TOML. "
+                    f"The file may be corrupted or contain invalid TOML syntax: {e}"
+                ) from e
         else:
-            config_toml.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                config_toml.parent.mkdir(parents=True, exist_ok=True)
+            except (OSError, IOError) as e:
+                raise OSError(
+                    f"Failed to create directory {config_toml.parent}: {e}"
+                ) from e
             config = tomlkit.TOMLDocument()
 
         to_update = deepcopy(config)
