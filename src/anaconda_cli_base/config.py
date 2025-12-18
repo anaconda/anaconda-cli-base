@@ -217,7 +217,6 @@ class AnacondaBaseSettings(BaseSettings):
 
             # Clean up old backups, keeping only the last 5
             try:
-                backup_pattern = config_toml.with_name("config.backup.*.toml")
                 backups = sorted(
                     config_toml.parent.glob("config.backup.*.toml"),
                     key=lambda p: p.stat().st_mtime,
