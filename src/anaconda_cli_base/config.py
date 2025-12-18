@@ -181,7 +181,8 @@ class AnacondaBaseSettings(BaseSettings):
 
         Behavior:
             - Creates ~/.anaconda/config.toml if it doesn't exist
-            - Creates a backup at ~/.anaconda/config.backup.toml before writing
+            - Creates timestamped backup (e.g., config.backup.20231218_143022.toml)
+            - Keeps last 5 backups, automatically deletes older ones
             - Preserves comments and formatting in existing config
             - Only writes non-default, non-None values
             - Removes keys when values are set to their defaults
@@ -200,16 +201,34 @@ class AnacondaBaseSettings(BaseSettings):
         # writing to config.toml
         self.model_validate(values)
 
-        # save a backup of the config.toml just to be safe
+        # save a timestamped backup of the config.toml
         config_toml = anaconda_config_path()
         if config_toml.exists():
-            backup_path = config_toml.with_suffix(".backup.toml")
+            from datetime import datetime
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            backup_path = config_toml.with_name(f"config.backup.{timestamp}.toml")
             try:
                 copy(config_toml, backup_path)
             except (OSError, IOError) as e:
                 raise OSError(
                     f"Failed to create backup of {config_toml} at {backup_path}: {e}"
                 ) from e
+
+            # Clean up old backups, keeping only the last 5
+            try:
+                backup_pattern = config_toml.with_name("config.backup.*.toml")
+                backups = sorted(
+                    config_toml.parent.glob("config.backup.*.toml"),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )
+                # Keep the 5 most recent backups, delete the rest
+                for old_backup in backups[5:]:
+                    old_backup.unlink()
+            except (OSError, IOError):
+                # If cleanup fails, continue anyway - backup was already created
+                pass
 
             try:
                 with open(config_toml, "rt") as f:
