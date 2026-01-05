@@ -157,6 +157,7 @@ class AnacondaBaseSettings(BaseSettings):
 
     def write_config(
         self,
+        preserve_existing_keys: bool = True,
         dry_run: bool = False,
     ) -> None:
         """
@@ -171,6 +172,9 @@ class AnacondaBaseSettings(BaseSettings):
         entire write succeeds, preventing corruption from interrupted writes.
 
         Args:
+            preserve_existing_keys: If True (default) updates to existing keys in the
+                config.toml file, will not remove the key if set to the default
+                value. If False fields set to default value are removed from the file
             dry_run: If True, displays a diff of proposed changes without writing
                 to the file. If False (default), writes changes to config.toml.
 
@@ -264,6 +268,7 @@ class AnacondaBaseSettings(BaseSettings):
             orig: tomlkit.TOMLDocument,
             new: Dict[str, Any],
             full_model: Dict[str, Any],
+            preserve_existing_keys: bool = True,
         ) -> None:
             stack = deque[Tuple[TOMLDocument, Dict[str, Any], Dict[str, Any]]](
                 [(orig, new, full_model)]
@@ -280,7 +285,7 @@ class AnacondaBaseSettings(BaseSettings):
                     # ensure that it remains set even if the
                     # new value is the default for the class
                     value = current_full[k]
-                    if value is not None:
+                    if (value is not None) and preserve_existing_keys:
                         current_original[k] = value
                     else:
                         del current_original[k]
@@ -295,7 +300,9 @@ class AnacondaBaseSettings(BaseSettings):
                         current_original[k] = v
 
         full_dump = self.model_dump()
-        deepmerge(parent, values, full_dump)
+        deepmerge(
+            parent, values, full_dump, preserve_existing_keys=preserve_existing_keys
+        )
 
         if dry_run:
             import difflib

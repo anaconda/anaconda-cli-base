@@ -443,6 +443,30 @@ def test_write_plugin_revert_to_default(config_toml: Path) -> None:
     )
 
 
+def test_write_plugin_revert_to_default_and_drop(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            [plugin.plugged]
+            foo = "foo"
+            """
+        )
+    )
+
+    plugged = Plugin()
+    assert plugged.foo == "foo"
+
+    plugged.foo = "bar"
+    plugged.write_config(preserve_existing_keys=False)
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+        [plugin.plugged]
+        """
+    )
+
+
 def test_write_nesting_update(config_toml: Path) -> None:
     config_toml.write_text(
         dedent(
@@ -510,6 +534,41 @@ def test_write_nesting_update_revert_and_keep(config_toml: Path) -> None:
 
             [plugin.plugged.nested]
             flag = true
+            """
+    )
+
+
+def test_write_nesting_update_revert_and_drop(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.nested]
+            flag = false
+            """
+        )
+    )
+
+    plugged = Plugin()
+    assert plugged.foo == "foo"
+
+    assert plugged.nested == NestedFlag(flag=False)
+
+    plugged.nested.flag = True
+
+    plugged.write_config(preserve_existing_keys=False)
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
             """
     )
 
