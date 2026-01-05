@@ -276,6 +276,9 @@ class AnacondaBaseSettings(BaseSettings):
                 )
 
                 for k in removed_keys:
+                    # If a key was already present in toml
+                    # ensure that it remains set even if the
+                    # new value is the default for the class
                     value = current_full[k]
                     if value is not None:
                         current_original[k] = value
