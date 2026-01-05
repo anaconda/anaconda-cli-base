@@ -98,6 +98,7 @@ class AnacondaBaseSettings(BaseSettings):
             extra="ignore",
             ignored_types=(cached_property,),
             secrets_dir=anaconda_secrets_dir(),
+            validate_assignment=True,
         )
 
         return super().__init_subclass__(**kwargs)
@@ -164,11 +165,6 @@ class AnacondaBaseSettings(BaseSettings):
             exclude_computed_fields=True,
         )
 
-        # Validation of the dump ensures that attributes
-        # set manually on the instance are correct before
-        # writing to config.toml
-        self.model_validate(values)
-
         # save a backup of the config.toml just to be safe
         config_toml = anaconda_config_path()
         if config_toml.exists():
@@ -198,29 +194,36 @@ class AnacondaBaseSettings(BaseSettings):
         def deepmerge(
             orig: tomlkit.TOMLDocument,
             new: Dict[str, Any],
-            allow_removal: bool = True,
+            full_model: Dict[str, Any],
         ) -> None:
-            stack = deque[Tuple[TOMLDocument, Dict[str, Any]]]([(orig, new)])
+            stack = deque[Tuple[TOMLDocument, Dict[str, Any], Dict[str, Any]]](
+                [(orig, new, full_model)]
+            )
             while stack:
-                current_original, current_update = stack.popleft()
+                current_original, current_update, current_full = stack.popleft()
 
-                if allow_removal:
-                    removed_keys = (
-                        current_original.keys() - current_update.keys() - {"plugin"}
-                    )
-                    for k in removed_keys:
+                removed_keys = (
+                    current_original.keys() - current_update.keys() - {"plugin"}
+                )
+
+                for k in removed_keys:
+                    value = current_full[k]
+                    if value is not None:
+                        current_original[k] = value
+                    else:
                         del current_original[k]
 
                 for k, v in current_update.items():
                     if isinstance(v, dict):
                         if k not in current_original:
                             current_original.add(k, tomlkit.table())
-                        to_append = (current_original.get(k), v)
+                        to_append = (current_original.get(k), v, current_full.get(k))
                         stack.append(to_append)  # type: ignore
                     else:
                         current_original[k] = v
 
-        deepmerge(parent, values)
+        full_dump = self.model_dump()
+        deepmerge(parent, values, full_dump)
 
         if dry_run:
             import difflib

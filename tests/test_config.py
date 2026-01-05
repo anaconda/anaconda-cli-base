@@ -350,10 +350,15 @@ def test_root_level_table(config_toml: Path) -> None:
     assert config.foo == "baz"
 
 
+class NestedFlag(BaseModel):
+    flag: bool = True
+
+
 class Plugin(AnacondaBaseSettings, plugin_name="plugged"):
     foo: str = "bar"
     might_be_none: Optional[str] = "value"
     table: Optional[Dict[str, str]] = None
+    nested: NestedFlag = NestedFlag()
 
 
 def test_write_new_plugin_table_defaults_no_existing_file(config_toml: Path) -> None:
@@ -433,6 +438,7 @@ def test_write_plugin_revert_to_default(config_toml: Path) -> None:
     assert contents == dedent(
         """\
         [plugin.plugged]
+        foo = "bar"
         """
     )
 
@@ -466,6 +472,44 @@ def test_write_nesting_update(config_toml: Path) -> None:
 
             [plugin.plugged.table]
             key = "value"
+            """
+    )
+
+
+def test_write_nesting_update_revert_and_keep(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.nested]
+            flag = false
+            """
+        )
+    )
+
+    plugged = Plugin()
+    assert plugged.foo == "foo"
+
+    assert plugged.nested == NestedFlag(flag=False)
+
+    plugged.nested.flag = True
+
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.nested]
+            flag = true
             """
     )
 
@@ -521,7 +565,12 @@ def test_write_remove_plugin(config_toml: Path) -> None:
     plugin.write_config()
 
     contents = config_toml.read_text()
-    assert contents == "[plugin.plugged]\n"
+    assert contents == dedent(
+        """\
+        [plugin.plugged]
+        foo = "bar"
+        """
+    )
 
 
 class RootConfig(AnacondaBaseSettings, plugin_name=None):
@@ -645,7 +694,6 @@ def test_remove_root_level_table(config_toml: Path) -> None:
 
 def test_write_validation_error(config_toml: Path) -> None:
     plugin = Plugin()
-    plugin.foo = False  # type: ignore
 
     with pytest.raises(ValidationError):
-        plugin.write_config()
+        plugin.foo = False  # type: ignore
