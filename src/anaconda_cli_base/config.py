@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from collections import deque
 
@@ -261,5 +262,6 @@ class AnacondaBaseSettings(BaseSettings):
             console.print(syntax)
             return
 
-        with open(config_toml, "wt") as f:
-            tomlkit.dump(to_update, f)
+        config_dump = tomlkit.dumps(to_update)
+        config_dump = re.sub(r"\n+$", "\n", config_dump, re.DOTALL)
+        config_toml.write_text(config_dump)

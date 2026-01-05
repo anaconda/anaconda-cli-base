@@ -432,8 +432,8 @@ def test_write_plugin_revert_to_default(config_toml: Path) -> None:
     contents = config_toml.read_text()
     assert contents == dedent(
         """\
-            [plugin.plugged]
-            """
+        [plugin.plugged]
+        """
     )
 
 
@@ -499,7 +499,6 @@ def test_write_remove_nesting_table(config_toml: Path) -> None:
             [plugin.plugged]
             # a comment
             foo = "foo"
-
             """
     )
 
@@ -522,7 +521,7 @@ def test_write_remove_plugin(config_toml: Path) -> None:
     plugin.write_config()
 
     contents = config_toml.read_text()
-    assert contents == "[plugin.plugged]\n\n"
+    assert contents == "[plugin.plugged]\n"
 
 
 class RootConfig(AnacondaBaseSettings, plugin_name=None):
