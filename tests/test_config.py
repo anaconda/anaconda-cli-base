@@ -1,11 +1,12 @@
 import os
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional, Tuple, cast, Dict
+from typing import Optional, Tuple, cast, Dict, Iterator
 
 import pytest
 import typer
 from pydantic import BaseModel
+from pydantic import ValidationError
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
 
@@ -324,22 +325,462 @@ def test_error_handled(
     assert "Error in init kwarg DerivedSettings(not_required=3)" in result.stdout
 
 
-def test_root_level_table(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+@pytest.fixture
+def config_toml(tmp_path: Path, monkeypatch: MonkeyPatch) -> Iterator[Path]:
     config_file = tmp_path / "config.toml"
     monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
+    yield config_file
 
+
+def test_root_level_table(config_toml: Path) -> None:
     class RootLevelTable(AnacondaBaseSettings, plugin_name=None):
         foo: str = "bar"
         table: Optional[Dict[str, str]] = None
 
-    config_file.write_text(
+    config_toml.write_text(
         dedent("""\
-        foo = "baz"
-        [table]
-        key = "value"
-    """)
+            foo = "baz"
+            [table]
+            key = "value"
+        """)
     )
 
     config = RootLevelTable()
     assert config.table == {"key": "value"}
     assert config.foo == "baz"
+
+
+class NestedFlag(BaseModel):
+    flag: bool = True
+
+
+class Plugin(AnacondaBaseSettings, plugin_name="plugged"):
+    foo: str = "bar"
+    might_be_none: Optional[str] = "value"
+    table: Optional[Dict[str, str]] = None
+    nested: NestedFlag = NestedFlag()
+
+
+def test_write_new_plugin_table_defaults_no_existing_file(config_toml: Path) -> None:
+    plugged = Plugin()
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == "[plugin.plugged]\n"
+
+
+def test_write_new_plugin_table_no_existing_file(config_toml: Path) -> None:
+    plugged = Plugin(foo="foo")
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent("""\
+        [plugin.plugged]
+        foo = "foo"
+    """)
+
+
+def test_write_new_plugin_table_no_existing_file_without_null(
+    config_toml: Path,
+) -> None:
+    plugged = Plugin(foo="foo", might_be_none=None)
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent("""\
+        [plugin.plugged]
+        foo = "foo"
+    """)
+
+
+def test_write_new_plugin_table_existing_file(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            [plugin.other]
+            key = "value"
+            """
+        )
+    )
+
+    plugged = Plugin(foo="foo")
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+            [plugin.other]
+            key = "value"
+
+            [plugin.plugged]
+            foo = "foo"
+            """
+    )
+
+
+def test_write_plugin_revert_to_default(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            [plugin.plugged]
+            foo = "foo"
+            """
+        )
+    )
+
+    plugged = Plugin()
+    assert plugged.foo == "foo"
+
+    plugged.foo = "bar"
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+        [plugin.plugged]
+        foo = "bar"
+        """
+    )
+
+
+def test_write_plugin_update_repopulates_cache(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            [plugin.plugged]
+            foo = "foo"
+            """
+        )
+    )
+
+    plugged = Plugin()
+    assert plugged.foo == "foo"
+
+    plugged.foo = "bar"
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+        [plugin.plugged]
+        foo = "bar"
+        """
+    )
+
+    reloaded = Plugin()
+    assert reloaded.foo == "bar"
+
+
+def test_write_plugin_revert_to_default_and_drop(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            [plugin.plugged]
+            foo = "foo"
+            """
+        )
+    )
+
+    plugged = Plugin()
+    assert plugged.foo == "foo"
+
+    plugged.foo = "bar"
+    plugged.write_config(preserve_existing_keys=False)
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+        [plugin.plugged]
+        """
+    )
+
+
+def test_write_nesting_update(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+            """
+        )
+    )
+
+    plugged = Plugin()
+    assert plugged.foo == "foo"
+
+    plugged.table = {"key": "value"}
+
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.table]
+            key = "value"
+            """
+    )
+
+
+def test_write_nesting_update_revert_and_keep(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.nested]
+            flag = false
+            """
+        )
+    )
+
+    plugged = Plugin()
+    assert plugged.foo == "foo"
+
+    assert plugged.nested == NestedFlag(flag=False)
+
+    plugged.nested.flag = True
+
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.nested]
+            flag = true
+            """
+    )
+
+
+def test_write_nesting_update_revert_and_drop(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.nested]
+            flag = false
+            """
+        )
+    )
+
+    plugged = Plugin()
+    assert plugged.foo == "foo"
+
+    assert plugged.nested == NestedFlag(flag=False)
+
+    plugged.nested.flag = True
+
+    plugged.write_config(preserve_existing_keys=False)
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+            """
+    )
+
+
+def test_write_remove_nesting_table(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.table]
+            key = "value"
+            """
+        )
+    )
+
+    plugged = Plugin()
+    assert plugged.foo == "foo"
+    assert plugged.table == {"key": "value"}
+
+    plugged.table = None
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+            """
+    )
+
+
+def test_write_remove_plugin(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            [plugin.plugged]
+            foo = "foo"
+
+            [plugin.plugged.table]
+            key = "value"
+            """
+        )
+    )
+
+    plugin = Plugin(foo="bar", table=None)
+
+    plugin.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+        [plugin.plugged]
+        foo = "bar"
+        """
+    )
+
+
+class RootConfig(AnacondaBaseSettings, plugin_name=None):
+    foo: str = "bar"
+    table: Optional[Dict[str, str]] = None
+
+
+def test_write_root_level_key(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            # a comment
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.table]
+            key = "value"
+            """
+        )
+    )
+
+    root = RootConfig(foo="root")
+
+    root.write_config()
+
+    contents = config_toml.read_text()
+
+    assert contents == dedent(
+        """\
+            # a comment
+            foo = "root"
+
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.table]
+            key = "value"
+            """
+    )
+
+
+def test_write_nested_update(config_toml: Path) -> None:
+    class Nested(AnacondaBaseSettings, plugin_name="nested"):
+        foo: str = "bar"
+        table: Dict[str, str] = {}
+
+    nested = Nested()
+    nested.table["key"] = "value"
+
+    nested.write_config()
+
+    contents = config_toml.read_text()
+
+    assert contents == dedent("""\
+        [plugin.nested.table]
+        key = "value"
+        """)
+
+
+def test_write_root_level_update(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            # a comment
+            foo = "root"
+
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.table]
+            key = "value"
+            """
+        )
+    )
+
+    root = RootConfig()
+    assert root.foo == "root"
+
+    root.table = {"key": "set-at-root"}
+    root.write_config()
+
+    contents = config_toml.read_text()
+
+    assert contents == dedent(
+        """\
+            # a comment
+            foo = "root"
+
+            [plugin.plugged]
+            # a comment
+            foo = "foo"
+
+            [plugin.plugged.table]
+            key = "value"
+
+            [table]
+            key = "set-at-root"
+            """
+    )
+
+
+def test_remove_root_level_table(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            [table]
+            key = "set-at-root"
+            """
+        )
+    )
+
+    root = RootConfig(table=None)
+    root.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == ""
+
+
+def test_write_validation_error(config_toml: Path) -> None:
+    plugin = Plugin()
+
+    with pytest.raises(ValidationError):
+        plugin.foo = False  # type: ignore
