@@ -443,6 +443,34 @@ def test_write_plugin_revert_to_default(config_toml: Path) -> None:
     )
 
 
+def test_write_plugin_update_repopulates_cache(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            [plugin.plugged]
+            foo = "foo"
+            """
+        )
+    )
+
+    plugged = Plugin()
+    assert plugged.foo == "foo"
+
+    plugged.foo = "bar"
+    plugged.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+        [plugin.plugged]
+        foo = "bar"
+        """
+    )
+
+    reloaded = Plugin()
+    assert reloaded.foo == "bar"
+
+
 def test_write_plugin_revert_to_default_and_drop(config_toml: Path) -> None:
     config_toml.write_text(
         dedent(

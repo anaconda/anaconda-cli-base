@@ -281,8 +281,7 @@ this will now write the configuration equivalent to what you saw above
 ```
 
 Now with that configuration written to disk (using `dry_run=False`) we can re-read the configuration to confirm
-the change. Use caution: the values from the config.toml are cached so you may have restart your interpreter if you
-are doing this in an interactive session.
+the change.
 
 ```text
 >>> config = MyPluginConfig()

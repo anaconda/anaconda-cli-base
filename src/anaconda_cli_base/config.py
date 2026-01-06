@@ -359,6 +359,10 @@ class AnacondaBaseSettings(BaseSettings):
                 f.write(config_dump)
             # Atomic rename - if this fails, original file is untouched
             os.replace(tmp_path, config_toml)
+
+            # ensure that any existing cache of the config.toml file
+            # is cleared.
+            AnacondaConfigTomlSettingsSource._cache.clear()
         except Exception:
             # Clean up temp file if write or rename failed
             try:
