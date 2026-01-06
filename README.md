@@ -206,7 +206,124 @@ And can be set by env variable using the concatenation of `plugin_name`
 ANACONDA_MY_PLUGIN_EXTRAS_FIELD="value"
 ```
 
-See the [tests](https://github.com/anaconda/anaconda-cli-base/blob/main/tests/test_config.py) for more examples.
+### Writing configuration
+
+Plugin configurations can be written directly from subclasses of `AnacondaBaseSettings` with the
+`.write_config()` member method. This method takes two arguments
+
+* `preserve_existing_keys`:
+  * If True (default) updates to existing keys in the
+    config.toml file, will not remove the key if set to the default
+    value. If False fields set to default value are removed from the file
+* `dry_run`:
+  * If True, displays a diff of proposed changes without writing
+    to the file. If False (default), writes changes to config.toml.
+
+Here are some key aspects of writing configuration
+
+* `.write_config()` will only update changed lines in the config.toml preserving all existing configuration and comments
+* toml does not support `None` or `null`, any field set to the value `None` will not be written to the config.toml
+* fields set to their default value are not written to the config.toml
+  * Except when an existing key in the config.toml is updated to its default value. The key will still be written
+  * This is disabled with `preserve_existing_keys=False`
+
+Let's start with the plugin defined earlier and an instance of the config object with all default values
+
+```python
+from anaconda_cli_base.config import AnacondaBaseSettings
+from pydantic import BaseModel
+
+class Nested(BaseModel):
+    n1: int = 0
+    n2: int = 0
+
+class MyPluginConfig(AnacondaBaseSettings, plugin_name="my_plugin"):
+    foo: str = "bar"
+    nested: Nested = Nested()
+
+
+config = MyPluginConfig()
+```
+
+If there is either no config.toml or the existing file does not have the `[plugin.my_plugin]` table attempting
+to write the current state of the config will just add the table header since all values are default. Here is an
+example of the `dry_run` output in the case where the config.toml file did not exist
+
+```text
+>>> config.write_config(dry_run=True)
+--- ~/.anaconda/config.toml
++++ ~/.anaconda/config.toml 01-06-26 09:40
+@@ -0,0 +1 @@
++[plugin.my_plugin]
+```
+
+You can change the configuration either by passing kwargs to the initialization or by directly updating attributes.
+
+```python
+config.foo = "baz"
+config.nested.n1 = 1
+config.nested.n2 = 2
+```
+
+this will now write the configuration equivalent to what you saw above
+
+```text
+>>> config.write_config(dry_run=True)
+--- config.toml
++++ config.toml 01-06-26 09:44
+@@ -0,0 +1,6 @@
++[plugin.my_plugin]
++foo = "baz"
++
++[plugin.my_plugin.nested]
++n1 = 1
++n2 = 2
+```
+
+Now with that configuration written to disk (using `dry_run=False`) we can re-read the configuration to confirm
+the change. Use caution: the values from the config.toml are cached so you may have restart your interpreter if you
+are doing this in an interactive session.
+
+```text
+>>> config = MyPluginConfig()
+>>> print(config)
+foo='baz' nested=Nested(n1=1, n2=2)
+```
+
+Let's change `foo` back to its default value. We can do that either by setting the attribute `config.foo = "bar"` or
+by passing a kwarg to override the config.toml.
+
+The dry-run output now only changes the `foo` key in the config.toml leaving all other lines unchanged
+
+```text
+>>> config = MyPluginConfig(foo="bar")
+>>> config.write_config(dry_run=True)
+--- config.toml 01-06-26 09:53
++++ config.toml 01-06-26 09:56
+@@ -1,5 +1,5 @@
+ [plugin.my_plugin]
+-foo = "baz"
++foo = "bar"
+
+ [plugin.my_plugin.nested]
+ n1 = 1
+```
+
+If instead we wish to remove keys when set to their default value pass the `preserve_existing_keys=False` argument
+
+```text
+>>> config.write_config(dry_run=True, preserve_existing_keys=False)
+--- config.toml 01-06-26 09:53
++++ config.toml 01-06-26 09:57
+@@ -1,5 +1,4 @@
+ [plugin.my_plugin]
+-foo = "baz"
+
+ [plugin.my_plugin.nested]
+ n1 = 1
+```
+
+See the [tests](https://github.com/anaconda/anaconda-cli-base/blob/main/tests/test_config.py) for more examples of reading and writing plugin configuration.
 
 ## Setup for development
 
