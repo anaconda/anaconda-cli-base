@@ -6,6 +6,7 @@ from typing import Optional, Tuple, cast, Dict, Iterator
 import pytest
 import typer
 from pydantic import BaseModel
+from pydantic import RootModel
 from pydantic import ValidationError
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
@@ -777,6 +778,105 @@ def test_remove_root_level_table(config_toml: Path) -> None:
 
     contents = config_toml.read_text()
     assert contents == ""
+
+
+class Item(BaseModel):
+    key: Optional[str] = None
+    key2: str = "default"
+
+
+Mapping = RootModel[Dict[str, Item]]
+
+
+class MappingPlugin(AnacondaBaseSettings, plugin_name="mapper"):
+    map: Mapping = Mapping({})
+
+
+def test_update_root_model_value_none_drop(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            [plugin.mapper.map.foo]
+            key = "foo"
+            key2 = "non-default"
+
+            [plugin.mapper.map.bar]
+            key = "bar"
+            """
+        )
+    )
+
+    plugin = MappingPlugin()
+    plugin.map.root["foo"].key = None
+    plugin.map.root["foo"].key2 = "default"
+    plugin.write_config(preserve_existing_keys=False)
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+        [plugin.mapper.map.foo]
+
+        [plugin.mapper.map.bar]
+        key = "bar"
+        """
+    )
+
+
+def test_update_root_model_value_none_preserve(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            [plugin.mapper.map.foo]
+            key = "foo"
+            key2 = "non-default"
+
+            [plugin.mapper.map.bar]
+            key = "bar"
+            """
+        )
+    )
+
+    plugin = MappingPlugin()
+    plugin.map.root["foo"].key = None
+    plugin.map.root["foo"].key2 = "default"
+    plugin.write_config(preserve_existing_keys=True)
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+        [plugin.mapper.map.foo]
+        key2 = "default"
+
+        [plugin.mapper.map.bar]
+        key = "bar"
+        """
+    )
+
+
+def test_update_root_model_drop_key(config_toml: Path) -> None:
+    config_toml.write_text(
+        dedent(
+            """\
+            [plugin.mapper.map.foo]
+            key = "foo"
+
+            [plugin.mapper.map.bar]
+            key = "bar"
+            """
+        )
+    )
+
+    plugin = MappingPlugin()
+    del plugin.map.root["bar"]
+    plugin.write_config()
+
+    contents = config_toml.read_text()
+    assert contents == dedent(
+        """\
+        [plugin.mapper.map.foo]
+        key = "foo"
+        """
+    )
 
 
 def test_write_validation_error(config_toml: Path) -> None:
