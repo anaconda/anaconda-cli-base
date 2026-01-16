@@ -3,6 +3,7 @@ import itertools
 import os
 import sys
 from functools import partial
+from typing import Annotated
 from typing import Tuple
 from typing import Type
 from typing import cast
@@ -589,11 +590,11 @@ def error_plugin() -> ENTRY_POINT_TUPLE:
         return -1
 
     @plugin.command("auto-catch")
-    def auth_catch() -> None:
+    def auth_catch(opt: Annotated[Optional[bool], typer.Option()] = None) -> None:
         _ = 1 / 0
 
     @plugin.command("custom-catch")
-    def custom_catch() -> None:
+    def custom_catch(arg: Annotated[Optional[str], typer.Argument()] = None) -> None:
         raise MyException("something bad happened")
 
     class Counter:
@@ -669,6 +670,50 @@ def test_error_handled(
         "calling counter",
         "RuntimeError: something went wrong",
     ]
+
+
+def test_error_handled_recommend_verbose(
+    invoke_cli: CLIInvoker,
+    error_plugin: ENTRY_POINT_TUPLE,
+    mocker: MockerFixture,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    # Test that subcommand captures the top-level CLI params via the typer.Context.obj.params attribute.
+
+    # these env vars should not be set in a normal env for this test
+    monkeypatch.delenv("ANACONDA_CLI_FORCE_NEW", raising=False)
+    monkeypatch.delenv("ANACONDA_CLIENT_FORCE_STANDALONE", raising=False)
+
+    plugins = [error_plugin]
+    mocker.patch(
+        "anaconda_cli_base.plugins._load_entry_points_for_group", return_value=plugins
+    )
+    load_registered_subcommands(cast(typer.Typer, anaconda_cli_base.cli.app))
+
+    result = invoke_cli(["error", "auto-catch"])
+    assert result.exit_code == 1
+    lines = result.stdout.splitlines()
+    assert lines[-1].strip() == "anaconda --verbose error auto-catch"
+
+    result = invoke_cli(["error", "auto-catch", "--opt"])
+    assert result.exit_code == 1
+    lines = result.stdout.splitlines()
+    assert lines[-1].strip() == "anaconda --verbose error auto-catch --opt"
+
+    result = invoke_cli(["error", "auto-catch", "--no-opt"])
+    assert result.exit_code == 1
+    lines = result.stdout.splitlines()
+    assert lines[-1].strip() == "anaconda --verbose error auto-catch --no-opt"
+
+    result = invoke_cli(["error", "custom-catch"])
+    assert result.exit_code == 42
+    lines = result.stdout.splitlines()
+    assert lines[-1].strip() == "anaconda --verbose error custom-catch"
+
+    result = invoke_cli(["error", "custom-catch", "arg"])
+    assert result.exit_code == 42
+    lines = result.stdout.splitlines()
+    assert lines[-1].strip() == "anaconda --verbose error custom-catch arg"
 
 
 @pytest.mark.parametrize(
