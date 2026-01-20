@@ -16,7 +16,6 @@ import click.core
 import click.utils
 from typer.core import TyperGroup
 
-from anaconda_cli_base import __version__
 from anaconda_cli_base import console
 from anaconda_cli_base.plugins import load_registered_subcommands
 from anaconda_cli_base.exceptions import ERROR_HANDLERS
@@ -184,10 +183,8 @@ def main(
         raise typer.Exit()
 
     if version:
-        console.print(
-            f"Anaconda CLI, version [cyan]{__version__}[/cyan]",
-            style="bold green",
-        )
+        func = ctx.command.get_command(ctx, "versions")
+        ctx.invoke(func)
         raise typer.Exit()
 
 

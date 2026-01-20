@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 import warnings
-from importlib.metadata import EntryPoint
+from importlib.metadata import EntryPoint, Distribution
 from importlib.metadata import entry_points
 from sys import version_info
 from typing import Any
@@ -12,11 +12,14 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import cast
+from typing import Set
 
 import typer
+from rich.table import Table
 from typer.models import DefaultPlaceholder
 
 from anaconda_cli_base.console import console, select_from_list
+from . import __version__
 
 log = logging.getLogger(__name__)
 
@@ -34,9 +37,9 @@ SiteDisplayName = str
 
 def _load_entry_points_for_group(
     group: str,
-) -> List[Tuple[PluginName, ModuleName, typer.Typer]]:
+) -> List[Tuple[PluginName, ModuleName, typer.Typer, Distribution]]:
     # The API was changed in Python 3.10, see https://docs.python.org/3/library/importlib.metadata.html#entry-points
-    found_entry_points: Tuple
+    found_entry_points: Tuple[EntryPoint, ...]
     if version_info.major == 3 and version_info.minor <= 9:
         found_entry_points = cast(
             Tuple[EntryPoint, ...],
@@ -51,7 +54,7 @@ def _load_entry_points_for_group(
             # Suppress anaconda-cloud-auth rename warnings just during entrypoint load
             warnings.filterwarnings("ignore", category=DeprecationWarning)
             module: typer.Typer = entry_point.load()
-        loaded.append((entry_point.name, entry_point.value, module))
+        loaded.append((entry_point.name, entry_point.value, module, entry_point.dist))
 
     return loaded
 
@@ -278,8 +281,15 @@ def load_registered_subcommands(app: typer.Typer) -> None:
     subcommand_entry_points = _load_entry_points_for_group(PLUGIN_GROUP_NAME)
     auth_handlers: Dict[PluginName, typer.Typer] = {}
     auth_handler_selectors: List[Tuple[SiteName, SiteDisplayName]] = []
-    for name, value, subcommand_app in subcommand_entry_points:
+    plugin_versions: Set[Tuple[str, str]] = {
+        ("anaconda-cli-base", __version__),
+    }
+
+    for name, value, subcommand_app, distribution in subcommand_entry_points:
         # Allow plugins to disable this if they explicitly want to, but otherwise make True the default
+
+        plugin_versions.add((distribution.name, distribution.version))
+
         if isinstance(subcommand_app.info.no_args_is_help, DefaultPlaceholder):
             subcommand_app.info.no_args_is_help = True
 
@@ -308,3 +318,10 @@ def load_registered_subcommands(app: typer.Typer) -> None:
             name,
             value,
         )
+
+    @app.command("versions", hidden=True)
+    def versions() -> None:
+        table = Table("Package", "Version", header_style="bold green")
+        for plugin, version in plugin_versions:
+            table.add_row(plugin, version)
+        console.print(table)
