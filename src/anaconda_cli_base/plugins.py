@@ -13,6 +13,7 @@ from typing import Optional
 from typing import Tuple
 from typing import cast
 from typing import Set
+from typing import Union
 
 import typer
 from rich.table import Table
@@ -37,7 +38,7 @@ SiteDisplayName = str
 
 def _load_entry_points_for_group(
     group: str,
-) -> List[Tuple[PluginName, ModuleName, typer.Typer, Distribution]]:
+) -> List[Tuple[PluginName, ModuleName, typer.Typer, Union[Distribution, None]]]:
     # The API was changed in Python 3.10, see https://docs.python.org/3/library/importlib.metadata.html#entry-points
     found_entry_points: Tuple[EntryPoint, ...]
     if version_info.major == 3 and version_info.minor <= 9:
@@ -288,7 +289,8 @@ def load_registered_subcommands(app: typer.Typer) -> None:
     for name, value, subcommand_app, distribution in subcommand_entry_points:
         # Allow plugins to disable this if they explicitly want to, but otherwise make True the default
 
-        plugin_versions.add((distribution.name, distribution.version))
+        if distribution is not None:
+            plugin_versions.add((distribution.name, distribution.version))
 
         if isinstance(subcommand_app.info.no_args_is_help, DefaultPlaceholder):
             subcommand_app.info.no_args_is_help = True
