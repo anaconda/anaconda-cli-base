@@ -18,7 +18,7 @@ import click.utils
 from rich.table import Table
 from typer.core import TyperGroup
 
-from . import __version__
+from anaconda_cli_base import __version__
 from anaconda_cli_base import console
 from anaconda_cli_base.plugins import load_registered_subcommands
 from anaconda_cli_base.exceptions import ERROR_HANDLERS

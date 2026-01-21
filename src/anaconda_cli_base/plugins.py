@@ -20,7 +20,7 @@ from rich.table import Table
 from typer.models import DefaultPlaceholder
 
 from anaconda_cli_base.console import console, select_from_list
-from . import __version__
+from anaconda_cli_base import __version__
 
 log = logging.getLogger(__name__)
 
