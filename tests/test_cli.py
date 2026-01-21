@@ -1,7 +1,9 @@
 import importlib
 import itertools
 import os
+import re
 import sys
+from importlib.metadata import Distribution
 from functools import partial
 from typing import Tuple
 from typing import Type
@@ -72,7 +74,9 @@ def test_cli_help(
 def test_cli_version(invoke_cli: CLIInvoker) -> None:
     result = invoke_cli(["--version"])
     assert result.exit_code == 0
-    assert f"Anaconda CLI, version {__version__}" in result.stdout
+    assert re.search(
+        f"anaconda-cli-base\\s+│\\s+{re.escape(__version__)}", result.stdout
+    )
 
 
 @pytest.mark.parametrize(
@@ -103,14 +107,17 @@ def test_cli_root_options_passthrough(invoke_cli: CLIInvoker, args: Tuple[str]) 
 
 
 @pytest.fixture
-def plugin() -> ENTRY_POINT_TUPLE:
+def plugin(mocker: MockerFixture) -> ENTRY_POINT_TUPLE:
     plugin = typer.Typer(name="plugin", add_completion=False, no_args_is_help=True)
 
     @plugin.command("action")
     def action() -> None:
         print("done")
 
-    return ("plugin", "plugin:app", plugin)
+    dist = mocker.Mock(spec=Distribution)
+    dist.name = "plugin"
+    dist.version = "0.0.1a"
+    return ("plugin", "plugin:app", plugin, dist)
 
 
 def test_load_plugin(
@@ -132,7 +139,7 @@ def test_load_plugin(
         None,
     )
     assert group is not None
-    assert group.typer_instance == plugin[-1]
+    assert group.typer_instance == plugin[-2]
 
     result = invoke_cli(["plugin", "action"])
     assert result.exit_code == 0
@@ -140,7 +147,7 @@ def test_load_plugin(
 
 
 @pytest.fixture
-def dummy_plugin(monkeypatch: MonkeyPatch) -> ENTRY_POINT_TUPLE:
+def dummy_plugin(monkeypatch: MonkeyPatch, mocker: MockerFixture) -> ENTRY_POINT_TUPLE:
     monkeypatch.setitem(
         anaconda_cli_base.plugins.AUTH_HANDLER_ALIASES, "dummy", "anaconda.com"
     )
@@ -162,7 +169,10 @@ def dummy_plugin(monkeypatch: MonkeyPatch) -> ENTRY_POINT_TUPLE:
     def whoami() -> None:
         console.print("dummy: Who are you?")
 
-    return ("dummy", "auth-plugin:app", plugin)
+    dist = mocker.Mock(spec=Distribution)
+    dist.name = "auth-plugin"
+    dist.version = "0.0.1auth-plugin"
+    return ("dummy", "auth-plugin:app", plugin, dist)
 
 
 def test_load_dummy_plugin(
@@ -189,7 +199,7 @@ def test_load_dummy_plugin(
         None,
     )
     assert group is not None
-    assert group.typer_instance == dummy_plugin[-1]
+    assert group.typer_instance == dummy_plugin[-2]
 
     for action in "login", "logout", "whoami":
         cmd = next(
@@ -228,7 +238,7 @@ def test_load_dummy_plugin(
 
 
 @pytest.fixture
-def org_plugin(monkeypatch: MonkeyPatch) -> ENTRY_POINT_TUPLE:
+def org_plugin(mocker: MockerFixture) -> ENTRY_POINT_TUPLE:
     plugin = typer.Typer(name="org", add_completion=False, no_args_is_help=True)
 
     @plugin.command("action")
@@ -256,7 +266,10 @@ def org_plugin(monkeypatch: MonkeyPatch) -> ENTRY_POINT_TUPLE:
     def whoami() -> None:
         console.print("org: Who are you?")
 
-    return ("org", "org-plugin:app", plugin)
+    dist = mocker.Mock(spec=Distribution)
+    dist.name = "org-plugin"
+    dist.version = "0.0.1a"
+    return ("org", "org-plugin:app", plugin, dist)
 
 
 @pytest.fixture
@@ -569,7 +582,7 @@ def test_capture_top_level_params(
 
 
 @pytest.fixture
-def error_plugin() -> ENTRY_POINT_TUPLE:
+def error_plugin(mocker: MockerFixture) -> ENTRY_POINT_TUPLE:
     plugin = typer.Typer(name="error", add_completion=False, no_args_is_help=True)
 
     class MyException(Exception):
@@ -618,7 +631,10 @@ def error_plugin() -> ENTRY_POINT_TUPLE:
         counter2()
         raise RuntimeError("something went wrong")
 
-    return ("error", "error-plugin:app", plugin)
+    dist = mocker.Mock(spec=Distribution)
+    dist.name = "error-plugin"
+    dist.version = "0.0.1a"
+    return ("error", "error-plugin:app", plugin, dist)
 
 
 def test_error_handled(

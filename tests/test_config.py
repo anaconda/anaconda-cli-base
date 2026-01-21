@@ -1,3 +1,4 @@
+from importlib.metadata import Distribution
 import os
 from pathlib import Path
 from textwrap import dedent
@@ -262,7 +263,9 @@ def test_settings_validation_error(monkeypatch: MonkeyPatch, tmp_path: Path) -> 
 
 
 @pytest.fixture
-def config_error_plugin(tmp_path: Path, monkeypatch: MonkeyPatch) -> ENTRY_POINT_TUPLE:
+def config_error_plugin(
+    tmp_path: Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> ENTRY_POINT_TUPLE:
     config_file = tmp_path / "config.toml"
     monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
 
@@ -294,7 +297,10 @@ def config_error_plugin(tmp_path: Path, monkeypatch: MonkeyPatch) -> ENTRY_POINT
         )
         _ = DerivedSettings(not_required=3)  # type: ignore
 
-    return ("config-error", "config-error-plugin:app", plugin)
+    dist = mocker.Mock(spec=Distribution)
+    dist.name = "config-error-plugin"
+    dist.version = "0.0.1config-error"
+    return ("config-error", "config-error-plugin:app", plugin, dist)
 
 
 def test_error_handled(

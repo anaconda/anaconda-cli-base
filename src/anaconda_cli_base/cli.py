@@ -14,8 +14,10 @@ from typing import List
 import typer
 import click.core
 import click.utils
+from rich.table import Table
 from typer.core import TyperGroup
 
+from . import __version__
 from anaconda_cli_base import console
 from anaconda_cli_base.plugins import load_registered_subcommands
 from anaconda_cli_base.exceptions import ERROR_HANDLERS
@@ -102,6 +104,14 @@ app = typer.Typer(
 )
 
 
+@app.command("versions", hidden=True)
+def versions() -> None:
+    table = Table("Package", "Version", header_style="bold green")
+    table.add_row("anaconda-cli-base", __version__)
+    console.print(table)
+    raise typer.Exit()
+
+
 @dataclass()
 class ContextExtras:
     """Encapsulates extra information we want to add to the `typer.Context`.
@@ -185,7 +195,6 @@ def main(
     if version:
         func = ctx.command.get_command(ctx, "versions")
         ctx.invoke(func)
-        raise typer.Exit()
 
 
 # There is a duplicate main callback in anaconda-client, which is invoked when the

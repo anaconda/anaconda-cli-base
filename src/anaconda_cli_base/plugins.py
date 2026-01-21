@@ -325,3 +325,4 @@ def load_registered_subcommands(app: typer.Typer) -> None:
         for plugin, version in plugin_versions:
             table.add_row(plugin, version)
         console.print(table)
+        raise typer.Exit()
