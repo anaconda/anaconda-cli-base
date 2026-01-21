@@ -116,7 +116,7 @@ def plugin(mocker: MockerFixture) -> ENTRY_POINT_TUPLE:
 
     dist = mocker.Mock(spec=Distribution)
     dist.name = "plugin"
-    dist.version = "0.0.1a"
+    dist.version = "0.0.1plugin"
     return ("plugin", "plugin:app", plugin, dist)
 
 
@@ -144,6 +144,13 @@ def test_load_plugin(
     result = invoke_cli(["plugin", "action"])
     assert result.exit_code == 0
     assert result.stdout == "done\n"
+
+    result = invoke_cli(["--version"])
+    assert result.exit_code == 0
+    assert re.search(
+        f"anaconda-cli-base\\s+│\\s+{re.escape(__version__)}", result.stdout
+    )
+    assert re.search(f"plugin\\s+│\\s+{re.escape('0.0.1plugin')}", result.stdout)
 
 
 @pytest.fixture
