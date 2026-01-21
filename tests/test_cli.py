@@ -40,6 +40,11 @@ installed_click_version = version.parse(importlib.metadata.version("click"))
 click_version_exit_code_changed = version.parse("8.2.0")
 
 
+def plugin_version_in_table(name: str, version: str, stdout: str) -> bool:
+    matched = re.search(f"{re.escape(name)}\\s+│\\s+{re.escape(version)}", stdout)
+    return matched is not None
+
+
 @pytest.mark.parametrize(
     "args, expected_exit_code",
     [
@@ -75,9 +80,7 @@ def test_cli_help(
 def test_cli_version(invoke_cli: CLIInvoker) -> None:
     result = invoke_cli(["--version"])
     assert result.exit_code == 0
-    assert re.search(
-        f"anaconda-cli-base\\s+│\\s+{re.escape(__version__)}", result.stdout
-    )
+    assert plugin_version_in_table("anaconda-cli-base", __version__, result.stdout)
 
 
 @pytest.mark.parametrize(
@@ -148,10 +151,8 @@ def test_load_plugin(
 
     result = invoke_cli(["--version"])
     assert result.exit_code == 0
-    assert re.search(
-        f"anaconda-cli-base\\s+│\\s+{re.escape(__version__)}", result.stdout
-    )
-    assert re.search(f"plugin\\s+│\\s+{re.escape('0.0.1plugin')}", result.stdout)
+    assert plugin_version_in_table("anaconda-cli-base", __version__, result.stdout)
+    assert plugin_version_in_table("plugin", "0.0.1plugin", result.stdout)
 
 
 @pytest.fixture
