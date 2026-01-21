@@ -104,6 +104,11 @@ app = typer.Typer(
 )
 
 
+# If subcommands are loaded with load_registered_subcommands()
+# this function is replaced to include versions of each plugin
+# package in addition to the version of anaconda-cli-base.
+# This function is hidden to prefer 'anaconda --version', which
+# calls this subcommand by name.
 @app.command("versions", hidden=True)
 def versions() -> None:
     table = Table("Package", "Version", header_style="bold green")
@@ -170,7 +175,10 @@ def main(
         hidden=True,
     ),
     version: Optional[bool] = typer.Option(
-        None, "-V", "--version", help="Show version and exit."
+        None,
+        "-V",
+        "--version",
+        help="Show the version of this package and installed plugins and exit.",
     ),
     show_help: Optional[bool] = typer.Option(
         False,
