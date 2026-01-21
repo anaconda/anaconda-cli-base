@@ -10,6 +10,7 @@ from typing import Optional
 from typing import Union
 from typing import Sequence
 from typing import List
+from typing import cast
 
 import typer
 import click.core
@@ -201,7 +202,8 @@ def main(
         raise typer.Exit()
 
     if version:
-        func = ctx.command.get_command(ctx, "versions")
+        cmd = cast(ErrorHandledGroup, ctx.command)
+        func = cmd.get_command(ctx, "versions")
         ctx.invoke(func)
 
 
