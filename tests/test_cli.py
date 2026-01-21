@@ -57,7 +57,7 @@ click_version_exit_code_changed = version.parse("8.2.0")
         "Welcome to the Anaconda CLI!",
         "Print debug information to the console.",
         "Show this message and exit.",
-        "Show version and exit.",
+        "Show the version of this package and installed plugins and exit.",
     ],
 )
 def test_cli_help(
