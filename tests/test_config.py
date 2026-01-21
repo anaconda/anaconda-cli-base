@@ -1,8 +1,8 @@
-from importlib.metadata import Distribution
 import os
+from importlib.metadata import Distribution
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional, Tuple, cast, Dict, Iterator
+from typing import Optional, Tuple, cast, Dict, Iterator, Union
 
 import pytest
 import typer
@@ -21,7 +21,7 @@ from anaconda_cli_base.plugins import load_registered_subcommands
 
 from .conftest import CLIInvoker
 
-ENTRY_POINT_TUPLE = Tuple[str, str, typer.Typer]
+ENTRY_POINT_TUPLE = Tuple[str, str, typer.Typer, Union[Distribution, None]]
 
 
 class Nested(BaseModel):
