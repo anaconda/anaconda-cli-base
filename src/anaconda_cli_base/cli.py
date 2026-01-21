@@ -203,7 +203,8 @@ def main(
 
     if version:
         cmd = cast(ErrorHandledGroup, ctx.command)
-        func = cmd.get_command(ctx, "versions")
+        versions = cmd.get_command(ctx, "versions")
+        func = cast(Callable, versions)
         ctx.invoke(func)
 
 
