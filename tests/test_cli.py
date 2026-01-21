@@ -8,7 +8,7 @@ from functools import partial
 from typing import Tuple
 from typing import Type
 from typing import cast
-from typing import Optional, Sequence, Callable, Generator
+from typing import Optional, Sequence, Callable, Generator, Union
 from unittest.mock import MagicMock
 
 import pytest
@@ -30,7 +30,7 @@ from anaconda_cli_base.plugins import (
 
 from .conftest import CLIInvoker
 
-ENTRY_POINT_TUPLE = Tuple[str, str, typer.Typer]
+ENTRY_POINT_TUPLE = Tuple[str, str, typer.Typer, Union[Distribution, None]]
 
 
 installed_click_version = version.parse(importlib.metadata.version("click"))
