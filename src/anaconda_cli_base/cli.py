@@ -10,10 +10,12 @@ from typing import Optional
 from typing import Union
 from typing import Sequence
 from typing import List
+from typing import cast
 
 import typer
 import click.core
 import click.utils
+from rich.table import Table
 from typer.core import TyperGroup
 
 from anaconda_cli_base import __version__
@@ -103,6 +105,19 @@ app = typer.Typer(
 )
 
 
+# If subcommands are loaded with load_registered_subcommands()
+# this function is replaced to include versions of each plugin
+# package in addition to the version of anaconda-cli-base.
+# This function is hidden to prefer 'anaconda --version', which
+# calls this subcommand by name.
+@app.command("versions", hidden=True)
+def versions() -> None:
+    table = Table("Package", "Version", header_style="bold green")
+    table.add_row("anaconda-cli-base", __version__)
+    console.print(table)
+    raise typer.Exit()
+
+
 @dataclass()
 class ContextExtras:
     """Encapsulates extra information we want to add to the `typer.Context`.
@@ -161,7 +176,10 @@ def main(
         hidden=True,
     ),
     version: Optional[bool] = typer.Option(
-        None, "-V", "--version", help="Show version and exit."
+        None,
+        "-V",
+        "--version",
+        help="Show the version of this package and installed plugins and exit.",
     ),
     show_help: Optional[bool] = typer.Option(
         False,
@@ -184,11 +202,10 @@ def main(
         raise typer.Exit()
 
     if version:
-        console.print(
-            f"Anaconda CLI, version [cyan]{__version__}[/cyan]",
-            style="bold green",
-        )
-        raise typer.Exit()
+        cmd = cast(ErrorHandledGroup, ctx.command)
+        versions = cmd.get_command(ctx, "versions")
+        func = cast(Callable, versions)
+        ctx.invoke(func)
 
 
 # There is a duplicate main callback in anaconda-client, which is invoked when the

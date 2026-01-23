@@ -14,16 +14,16 @@ In your `pyproject.toml` subcommands can be registered as follows:
 # In pyproject.toml
 
 [project.entry-points."anaconda_cli.subcommand"]
-auth = "anaconda_cloud_auth.cli:app"
+auth = "anaconda_auth.cli:app"
 ```
 
 In the example above:
 
-* `"anaconda_cloud_cli.subcommand"` is the required string to use for registration. The quotes are important.
+* `"anaconda_cli.subcommand"` is the required string to use for registration. The quotes are important.
 * `auth` is the name of the new subcommand, i.e. `anaconda auth`
   * All `typer.Typer` commands you define in your package are accessible the registered subcommand
   * i.e. `anaconda auth <command>`.
-* `anaconda_cloud_auth.cli:app` signifies the object named `app` in the `anaconda_cloud_auth.cli` module is the entry point for the subcommand.
+* `anaconda_auth.cli:app` signifies the object named `app` in the `anaconda_auth.cli` module is the entry point for the subcommand.
 
 ### Error handling
 
@@ -62,7 +62,7 @@ In the second example the handler returns `-1`. This means that the handler has 
 and the CLI subcommand should be re-tried. The handler could call another interactive command, like a login action,
 before attempting the CLI subcommand again.
 
-See the [anaconda-cloud-auth](https://github.com/anaconda/anaconda-cloud-tools/blob/main/libs/anaconda-cloud-auth/src/anaconda_cloud_auth/cli.py) plugin for an example custom handler.
+See the [anaconda-auth](https://github.com/anaconda/anaconda-auth/blob/main/src/anaconda_auth/cli.py) plugin for an example custom handler.
 
 ### Config file
 
@@ -269,8 +269,8 @@ this will now write the configuration equivalent to what you saw above
 
 ```text
 >>> config.write_config(dry_run=True)
---- config.toml
-+++ config.toml 01-06-26 09:44
+--- ~/.anaconda/config.toml
++++ ~/.anaconda/config.toml 01-06-26 09:44
 @@ -0,0 +1,6 @@
 +[plugin.my_plugin]
 +foo = "baz"
@@ -297,8 +297,8 @@ The dry-run output now only changes the `foo` key in the config.toml leaving all
 ```text
 >>> config = MyPluginConfig(foo="bar")
 >>> config.write_config(dry_run=True)
---- config.toml 01-06-26 09:53
-+++ config.toml 01-06-26 09:56
+--- ~/.anaconda/config.toml 01-06-26 09:53
++++ ~/.anaconda/config.toml 01-06-26 09:56
 @@ -1,5 +1,5 @@
  [plugin.my_plugin]
 -foo = "baz"
@@ -312,8 +312,8 @@ If instead we wish to remove keys when set to their default value pass the `pres
 
 ```text
 >>> config.write_config(dry_run=True, preserve_existing_keys=False)
---- config.toml 01-06-26 09:53
-+++ config.toml 01-06-26 09:57
+--- ~/.anaconda/config.toml 01-06-26 09:53
++++ ~/.anaconda/config.toml 01-06-26 09:57
 @@ -1,5 +1,4 @@
  [plugin.my_plugin]
 -foo = "baz"
