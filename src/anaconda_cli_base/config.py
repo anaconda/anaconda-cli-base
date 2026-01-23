@@ -24,7 +24,10 @@ from pydantic_settings import PydanticBaseSettingsSource
 from pydantic_settings import PyprojectTomlConfigSettingsSource
 from pydantic_settings import SettingsConfigDict
 
-from .exceptions import AnacondaConfigTomlSyntaxError, AnacondaConfigValidationError
+from anaconda_cli_base.exceptions import (
+    AnacondaConfigTomlSyntaxError,
+    AnacondaConfigValidationError,
+)
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -308,7 +311,7 @@ class AnacondaBaseSettings(BaseSettings):
             import difflib
             import datetime as dt
             from rich.syntax import Syntax
-            from .console import console
+            from anaconda_cli_base.console import console
 
             original = config.as_string()
             updated = to_update.as_string()
