@@ -357,7 +357,7 @@ class AnacondaBaseSettings(BaseSettings):
         )
         try:
             config_dump = tomlkit.dumps(to_update)
-            config_dump = re.sub(r"\n+$", "\n", config_dump, re.DOTALL)
+            config_dump = re.sub(r"\n+$", "\n", config_dump, flags=re.DOTALL)
             with os.fdopen(tmp_fd, "wt") as f:
                 f.write(config_dump)
             # Atomic rename - if this fails, original file is untouched
