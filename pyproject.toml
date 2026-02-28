@@ -10,6 +10,7 @@ dependencies = [
   "typer >=0.17",
   "packaging >=23.0",
   "pydantic-settings >=2.3",
+  "pydantic >=2.12",
   "tomli",
   "tomlkit"
 ]
