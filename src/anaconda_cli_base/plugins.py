@@ -161,6 +161,37 @@ def _select_auth_handler_and_args(
     return handler, args
 
 
+POST_LOGIN_HOOK_GROUP = "anaconda_cli.post_login"
+
+
+def _load_post_login_hooks() -> List[Tuple[str, Callable]]:
+    """Discover all registered post-login hook callables via entry points."""
+    hooks: List[Tuple[str, Callable]] = []
+    try:
+        if version_info.major == 3 and version_info.minor <= 9:
+            found = cast(
+                Tuple[EntryPoint, ...],
+                entry_points().get(POST_LOGIN_HOOK_GROUP, tuple()),  # type:ignore
+            )
+        else:
+            found = tuple(entry_points().select(group=POST_LOGIN_HOOK_GROUP))
+        for ep in found:
+            hook_fn = ep.load()
+            hooks.append((ep.name, hook_fn))
+    except Exception:
+        log.debug("Failed to load post-login hooks", exc_info=True)
+    return hooks
+
+
+def _run_post_login_hooks(domain: Optional[str] = None) -> None:
+    """Run all registered post-login hooks. Failures are logged, never raised."""
+    for name, hook_fn in _load_post_login_hooks():
+        try:
+            hook_fn(domain=domain)
+        except Exception:
+            log.debug("Post-login hook '%s' failed", name, exc_info=True)
+
+
 def _add_auth_actions_to_app(
     app: typer.Typer,
     auth_handlers: Dict[str, typer.Typer],
@@ -206,7 +237,12 @@ def _add_auth_actions_to_app(
             auth_handlers=auth_handlers,
             auth_handlers_dropdown=auth_handlers_dropdown,
         )
-        return handler(args=[ctx.command.name, *args], obj=ctx.obj)
+        result = handler(args=[ctx.command.name, *args], obj=ctx.obj)
+
+        if ctx.command.name == "login":
+            _run_post_login_hooks(domain=ctx_at or at)
+
+        return result
 
     help_doc = {
         "login": "Sign into Anaconda services",
