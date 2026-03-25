@@ -6,6 +6,7 @@ from typing import Optional, Tuple, cast, Dict, Iterator, Union
 
 import pytest
 import typer
+from pydantic import Field
 from pydantic import BaseModel
 from pydantic import RootModel
 from pydantic import ValidationError
@@ -890,3 +891,43 @@ def test_write_validation_error(config_toml: Path) -> None:
 
     with pytest.raises(ValidationError):
         plugin.foo = False  # type: ignore
+
+
+class SubA(BaseModel):
+    value: str = "default-a"
+
+
+class SubB(BaseModel):
+    value: str = "default-b"
+
+
+class Container(BaseModel):
+    a: SubA = Field(default_factory=SubA)
+    b: SubB = Field(default_factory=SubB)
+
+
+class MultiNestedPlugin(AnacondaBaseSettings, plugin_name="multi"):
+    choice: str = "a"
+    container: Container = Field(default_factory=Container)
+
+
+@pytest.mark.parametrize("val", ["custom", "default-a"])
+def test_write_sibling_nested_models_no_bleed(config_toml: Path, val: str) -> None:
+    """Only the nested sub-model present in config should appear in output,
+    even when its value matches the class default."""
+    config_toml.write_text(
+        dedent(f"""\
+            [plugin.multi]
+            choice = "a"
+            [plugin.multi.container.a]
+            value = "{val}"
+        """)
+    )
+
+    plugin = MultiNestedPlugin()
+    plugin.choice = "b"
+    plugin.write_config()
+
+    contents = config_toml.read_text()
+    assert "[plugin.multi.container.a]" in contents
+    assert "[plugin.multi.container.b]" not in contents
