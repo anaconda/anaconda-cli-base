@@ -290,7 +290,7 @@ class AnacondaBaseSettings(BaseSettings):
                     value = current_full.get(k, None)
                     if (value is not None) and preserve_existing_keys:
                         if isinstance(value, dict):
-                            stack.append((current_original[k], {}, value))
+                            stack.append((current_original[k], {}, value))  # type: ignore
                         else:
                             current_original[k] = value
                     else:
