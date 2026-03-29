@@ -740,6 +740,40 @@ def test_error_handled_recommend_verbose(
     assert lines[-1].strip() == "anaconda --verbose error custom-catch arg"
 
 
+def test_error_handled_recommend_verbose_args_none(
+    error_plugin: ENTRY_POINT_TUPLE,
+    mocker: MockerFixture,
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test the verbose hint includes args when main() is called with args=None.
+
+    The real CLI entry point calls ErrorHandledGroup.main(args=None), which
+    means Click reads sys.argv internally.  The error handler must still
+    reconstruct the original command for the 'anaconda --verbose ...' hint.
+    """
+    monkeypatch.delenv("ANACONDA_CLI_FORCE_NEW", raising=False)
+    monkeypatch.delenv("ANACONDA_CLIENT_FORCE_STANDALONE", raising=False)
+
+    plugins = [error_plugin]
+    mocker.patch(
+        "anaconda_cli_base.plugins._load_entry_points_for_group", return_value=plugins
+    )
+    app = cast(typer.Typer, anaconda_cli_base.cli.app)
+    load_registered_subcommands(app)
+
+    click_app = typer.main.get_command(app)
+
+    # Simulate real CLI: args=None, sys.argv has the command
+    monkeypatch.setattr(sys, "argv", ["anaconda", "error", "auto-catch"])
+    with pytest.raises(SystemExit) as exc_info:
+        click_app.main(args=None, standalone_mode=True)
+
+    assert exc_info.value.code == 1
+    captured = capsys.readouterr()
+    assert "anaconda --verbose error auto-catch" in captured.out
+
+
 @pytest.mark.parametrize(
     "options, top_options, expected_handler, expected_args",
     [

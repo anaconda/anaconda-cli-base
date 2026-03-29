@@ -64,6 +64,10 @@ class ErrorHandledGroup(TyperGroup):
                     **extra,
                 )
             else:
+                # this happens in self.main
+                # so the above is still correct
+                if not args:
+                    args = sys.argv[1:]
                 cmd = " ".join(args or [])
                 console.print(
                     f"\nTo see a more detailed error message run the command again as"
