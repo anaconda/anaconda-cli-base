@@ -2,6 +2,7 @@ import importlib
 import itertools
 import os
 import re
+import subprocess
 import sys
 from importlib.metadata import Distribution
 from functools import partial
@@ -899,3 +900,26 @@ def test_at_handler(
 
     result = invoke_cli(["--at", "site-name", "--version"])
     assert os.getenv("ANACONDA_DEFAULT_SITE") == "site-name"
+
+
+def test_python_m_invocation() -> None:
+    """Ensure `python -m anaconda_cli_base` launches the CLI."""
+    result = subprocess.run(
+        [sys.executable, "-m", "anaconda_cli_base", "--help"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0
+    assert "Welcome to the Anaconda CLI!" in result.stdout
+
+
+def test_python_m_bad_command() -> None:
+    """Ensure `python -m anaconda_cli_base` exits non-zero on unknown commands."""
+    result = subprocess.run(
+        [sys.executable, "-m", "anaconda_cli_base", "nonexistent-command"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode != 0
