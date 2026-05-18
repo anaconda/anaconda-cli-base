@@ -902,7 +902,7 @@ def test_at_handler(
     assert os.getenv("ANACONDA_DEFAULT_SITE") == "site-name"
 
 
-def test_python_m_invocation():
+def test_python_m_invocation() -> None:
     """Ensure `python -m anaconda_cli_base` launches the CLI."""
     result = subprocess.run(
         [sys.executable, "-m", "anaconda_cli_base", "--help"],
