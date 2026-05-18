@@ -71,12 +71,27 @@ class AnacondaConfigTomlSettingsSource(PyprojectTomlConfigSettingsSource):
 
 class AnacondaBaseSettings(BaseSettings):
     def __init_subclass__(
-        cls, plugin_name: Optional[Union[str, tuple]] = None, **kwargs: Any
+        cls,
+        plugin_name: Optional[Union[str, tuple]] = None,
+        table_name: Optional[str] = None,
+        **kwargs: Any,
     ) -> None:
         base_env_prefix: str = "ANACONDA_"
         pyproject_toml_table_header: Tuple[str, ...]
 
-        if plugin_name is None:
+        if plugin_name is not None and table_name is not None:
+            raise ValueError(
+                "Cannot specify both plugin_name and table_name. "
+                "Use plugin_name for [plugin.<name>] tables or "
+                "table_name for top-level [<name>] tables."
+            )
+
+        if table_name is not None:
+            # Top-level table: [telemetry], [auth], etc.
+            # No "plugin." prefix — for framework-level config sections.
+            pyproject_toml_table_header = (table_name,)
+            env_prefix = base_env_prefix + f"{table_name.upper()}_"
+        elif plugin_name is None:
             pyproject_toml_table_header = ()
             env_prefix = base_env_prefix
         elif isinstance(plugin_name, tuple):

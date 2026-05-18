@@ -358,6 +358,55 @@ def test_root_level_table(config_toml: Path) -> None:
     assert config.foo == "baz"
 
 
+def test_table_name_reads_top_level_section(config_toml: Path) -> None:
+    class TelemetryConfig(AnacondaBaseSettings, table_name="telemetry"):
+        endpoint: Optional[str] = None
+        anon_usage: bool = True
+
+    config_toml.write_text(
+        dedent("""\
+            [telemetry]
+            endpoint = "https://otel.anaconda.com:4317"
+            anon_usage = false
+        """)
+    )
+
+    config = TelemetryConfig()
+    assert config.endpoint == "https://otel.anaconda.com:4317"
+    assert config.anon_usage is False
+
+
+def test_table_name_env_prefix(monkeypatch: MonkeyPatch, config_toml: Path) -> None:
+    class TelemetryConfig(AnacondaBaseSettings, table_name="telemetry"):
+        endpoint: Optional[str] = None
+
+    monkeypatch.setenv("ANACONDA_TELEMETRY_ENDPOINT", "https://env-override.com:4317")
+
+    config = TelemetryConfig()
+    assert config.endpoint == "https://env-override.com:4317"
+
+
+def test_table_name_write_config(config_toml: Path) -> None:
+    class TelemetryConfig(AnacondaBaseSettings, table_name="telemetry"):
+        endpoint: Optional[str] = None
+        anon_usage: bool = True
+
+    config = TelemetryConfig(endpoint="https://otel.anaconda.com:4317")
+    config.write_config()
+
+    contents = config_toml.read_text()
+    assert "[telemetry]" in contents
+    assert 'endpoint = "https://otel.anaconda.com:4317"' in contents
+    assert "[plugin" not in contents
+
+
+def test_table_name_and_plugin_name_mutually_exclusive() -> None:
+    with pytest.raises(ValueError, match="Cannot specify both"):
+
+        class BadConfig(AnacondaBaseSettings, plugin_name="foo", table_name="bar"):
+            field: str = "value"
+
+
 class NestedFlag(BaseModel):
     flag: bool = True
 
