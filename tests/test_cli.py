@@ -914,7 +914,7 @@ def test_python_m_invocation():
     assert "Welcome to the Anaconda CLI!" in result.stdout
 
 
-def test_python_m_bad_command():
+def test_python_m_bad_command() -> None:
     """Ensure `python -m anaconda_cli_base` exits non-zero on unknown commands."""
     result = subprocess.run(
         [sys.executable, "-m", "anaconda_cli_base", "nonexistent-command"],
