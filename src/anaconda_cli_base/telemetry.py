@@ -54,16 +54,14 @@ def _ensure_initialized() -> None:
 
         cfg = TelemetryConfig()
 
-        api_key = None
-        try:
-            from anaconda_auth.config import AnacondaAuthConfig
-
-            api_key = AnacondaAuthConfig().api_key
-        except Exception:
-            pass
+        api_key = _get_api_key()
+        if api_key:
+            endpoint = cfg.endpoint
+        else:
+            endpoint = cfg.public_endpoint
 
         config = Configuration(
-            default_endpoint=cfg.endpoint,
+            default_endpoint=endpoint,
             default_auth_token=api_key,
         )
         if cfg.skip_internet_check:
@@ -86,6 +84,19 @@ def _ensure_initialized() -> None:
         _initialized = True
     except Exception:
         pass
+
+
+def _get_api_key():
+    try:
+        from anaconda_auth.exceptions import TokenNotFoundError
+        from anaconda_auth.token import TokenInfo
+
+        token_info = TokenInfo.load("anaconda.com")
+        return token_info.api_key
+    except TokenNotFoundError:
+        return None
+    except Exception:
+        return None
 
 
 def _before_command(args, prog_name) -> Optional[_CommandInfo]:
