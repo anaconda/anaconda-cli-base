@@ -9,6 +9,8 @@ import pytest
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
 
+from .conftest import CLIInvoker
+
 
 @pytest.fixture(autouse=True)
 def isolate_telemetry(monkeypatch: MonkeyPatch) -> Generator[None, None, None]:
@@ -175,3 +177,83 @@ def test_noop_span_methods_are_safe() -> None:
     span.add_exception(RuntimeError("boom"))
     span.set_error_status("error")
     span.add_attributes({"key": "value"})
+
+
+def test_cli_success_calls_telemetry(
+    invoke_cli: CLIInvoker, mocker: MockerFixture
+) -> None:
+    before = mocker.patch("anaconda_cli_base.cli._before_command")
+    after = mocker.patch("anaconda_cli_base.cli._after_command")
+
+    result = invoke_cli(["some-test-subcommand"])
+    assert result.exit_code == 0
+
+    before.assert_called_once()
+    after.assert_called_once()
+    _, kwargs = after.call_args
+    assert kwargs["success"] is True
+
+
+def test_cli_failure_calls_telemetry_with_error(
+    invoke_cli: CLIInvoker, mocker: MockerFixture
+) -> None:
+    from anaconda_cli_base.exceptions import register_error_handler
+
+    class _TelTestError(Exception):
+        pass
+
+    @register_error_handler(_TelTestError)
+    def _handle(e: type) -> int:
+        return 99
+
+    import anaconda_cli_base.cli
+
+    @anaconda_cli_base.cli.app.command("tel-fail")
+    def tel_fail() -> None:
+        raise _TelTestError("boom")
+
+    before = mocker.patch("anaconda_cli_base.cli._before_command")
+    after = mocker.patch("anaconda_cli_base.cli._after_command")
+
+    result = invoke_cli(["tel-fail"])
+    assert result.exit_code == 99
+
+    before.assert_called_once()
+    after.assert_called_once()
+    _, kwargs = after.call_args
+    assert kwargs["success"] is False
+    assert isinstance(kwargs["error"], _TelTestError)
+
+
+def test_cli_retry_calls_telemetry_once(
+    invoke_cli: CLIInvoker, mocker: MockerFixture
+) -> None:
+    from anaconda_cli_base.exceptions import register_error_handler
+
+    class _TelRetryError(Exception):
+        pass
+
+    call_count = 0
+
+    @register_error_handler(_TelRetryError)
+    def _handle(e: type) -> int:
+        return -1
+
+    import anaconda_cli_base.cli
+
+    @anaconda_cli_base.cli.app.command("tel-retry")
+    def tel_retry() -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count < 2:
+            raise _TelRetryError("retry me")
+
+    before = mocker.patch("anaconda_cli_base.cli._before_command")
+    after = mocker.patch("anaconda_cli_base.cli._after_command")
+
+    result = invoke_cli(["tel-retry"])
+    assert result.exit_code == 0
+    assert call_count == 2
+
+    before.assert_called_once()
+    after.assert_called_once()
