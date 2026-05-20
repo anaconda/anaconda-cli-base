@@ -165,13 +165,16 @@ def traced(
     attributes: Optional[Dict[str, Any]] = None,
     source: Optional[str] = None,
 ):
-    """Create a traced span. No-ops when telemetry is disabled.
+    """Create a child span for tracing a block of work.
 
-    The except clause yielding _NoOpSpan is defensive against an upstream
-    bug in anaconda-opentelemetry's get_trace(): when tracing is not
-    initialized, it does `return None` inside a @contextmanager generator
-    instead of yielding, which causes a TypeError/StopIteration. This wrapper
-    guarantees callers always get a usable span object.
+    Use to measure duration and capture events within a logical operation.
+    The span appears in trace views as a child of the CLI command's root span,
+    giving visibility into where time is spent.
+
+    Usage:
+        with traced("models_download", {"model": "llama3"}, source="anaconda-ai") as span:
+            result = do_download(model)
+            span.add_event("download_complete", {"size_bytes": result.size})
     """
     if not _initialized:
         yield _NoOpSpan()
@@ -185,15 +188,25 @@ def traced(
         with get_trace(name, attributes=span_attrs) as span:
             yield span
     except Exception:
+        # Defensive: upstream get_trace() does `return None` inside a @contextmanager
+        # when tracing is uninitialized, which breaks the `with` protocol.
         yield _NoOpSpan()
 
 
 def count(
     name: str,
-    by: int = 1,
+    value: int = 1,
     attributes: Optional[Dict[str, Any]] = None,
     source: Optional[str] = None,
 ) -> None:
+    """Increment a counter metric. Use for discrete occurrences you want to sum.
+
+    Counters are aggregated server-side (summed over time windows) and are ideal
+    for alerting on rates (e.g., errors/minute). Use instead of log_event when
+    you need numeric aggregation rather than individual event records.
+
+    Examples: commands executed, models downloaded, auth failures.
+    """
     if not _initialized:
         return
     try:
@@ -202,7 +215,7 @@ def count(
         metric_attrs = dict(attributes or {})
         if source:
             metric_attrs["source"] = source
-        increment_counter(name, by=by, attributes=metric_attrs)
+        increment_counter(name, by=value, attributes=metric_attrs)
     except Exception:
         pass
 
@@ -213,6 +226,14 @@ def histogram(
     attributes: Optional[Dict[str, Any]] = None,
     source: Optional[str] = None,
 ) -> None:
+    """Record a distribution measurement. Use for values you want percentiles of.
+
+    Histograms compute p50/p95/p99 server-side, making them ideal for latency
+    and size measurements. Use instead of log_event when you need statistical
+    summaries rather than individual event records.
+
+    Examples: command duration, download size, response time.
+    """
     if not _initialized:
         return
     try:
@@ -255,11 +276,19 @@ def log_event(
 
 @contextmanager
 def suppress_http_spans():
-    """Suppress HTTP-level spans inside this block.
+    """Suppress HTTP-level spans inside a block to reduce trace noise.
 
-    Uses contextvars for proper isolation across threads and asyncio tasks.
-    The parent span (from traced()) still records the full duration.
-    HTTP metrics (counters/histograms) are still emitted — only spans are suppressed.
+    Use when polling or retrying produces many identical HTTP spans that
+    obscure the real operation. The parent span still records full duration,
+    and HTTP metrics (counters/histograms) are still emitted — only spans
+    are suppressed.
+
+    Usage:
+        with traced("servers_wait_for_running") as span:
+            with suppress_http_spans():
+                while status != "running":
+                    status = client.servers.status(server_id)
+            span.add_attributes({"final_status": status})
     """
     token = _suppress_http.set(True)
     try:
