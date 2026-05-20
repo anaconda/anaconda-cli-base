@@ -1,3 +1,5 @@
+from typing import Optional
+
 from anaconda_cli_base.config import AnacondaBaseSettings
 
 AUTHENTICATED_ENDPOINT = "https://metrics.aa.anaconda.com"
@@ -13,4 +15,4 @@ class TelemetryConfig(AnacondaBaseSettings, table_name="telemetry"):
 
     enabled: bool = True
     share_session_identity: bool = True
-    skip_internet_check: bool = True
+    proxy_url: Optional[str] = None

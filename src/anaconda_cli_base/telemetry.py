@@ -68,8 +68,9 @@ def _ensure_initialized() -> None:
             default_endpoint=endpoint,
             default_auth_token=api_key,
         )
-        if cfg.skip_internet_check:
-            config.set_skip_internet_check(True)
+        config.set_skip_internet_check(True)
+        if cfg.proxy_url:
+            config.set_proxy_url(cfg.proxy_url)
 
         config.set_metrics_export_interval_ms(1000)
         config.set_tracing_export_interval_ms(1000)
