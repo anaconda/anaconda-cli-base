@@ -62,6 +62,11 @@ def disable_config_toml(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(tmp_path / "empty-config.toml"))
 
 
+@pytest.fixture(autouse=True)
+def disable_telemetry(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("OTEL_SDK_DISABLED", "true")
+
+
 @pytest.fixture()
 def tmp_cwd(monkeypatch: MonkeyPatch, tmp_path: Path) -> Path:
     """Create & return a temporary directory after setting current working directory to it."""
