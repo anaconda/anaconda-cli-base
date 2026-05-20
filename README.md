@@ -2,6 +2,42 @@
 
 A base CLI entrypoint supporting Anaconda CLI plugins using [Typer](https://github.com/fastapi/typer).
 
+## Telemetry
+
+The CLI automatically reports command execution metrics for all registered plugins via
+[anaconda-opentelemetry](https://github.com/anaconda/anaconda-otel-python). Every command invocation
+records the command name, execution duration, and success/failure status. No plugin changes are required.
+
+### Disabling telemetry
+
+Telemetry is enabled by default. To disable:
+
+```bash
+export ANACONDA_TELEMETRY_ENABLED=false
+```
+
+Or in `~/.anaconda/config.toml`:
+
+```toml
+[telemetry]
+enabled = false
+```
+
+### Configuration
+
+Telemetry settings live in the `[telemetry]` section of `~/.anaconda/config.toml` or
+as environment variables with the `ANACONDA_TELEMETRY_` prefix.
+
+| Setting | Env Variable | Default | Description |
+|---------|-------------|---------|-------------|
+| `enabled` | `ANACONDA_TELEMETRY_ENABLED` | `true` | Enable or disable all CLI telemetry |
+| `share_session_identity` | `ANACONDA_TELEMETRY_SHARE_SESSION_IDENTITY` | `true` | Include anonymous session tokens for usage correlation |
+| `proxy_url` | `ANACONDA_TELEMETRY_PROXY_URL` | None | HTTP proxy for telemetry export (for corporate networks) |
+
+When `share_session_identity` is `true`, hashed machine and session tokens are included with telemetry
+data. These allow Anaconda to correlate usage patterns across CLI sessions without identifying you personally.
+Set to `false` to send only standalone metrics with no session linking.
+
 ## Registering plugins
 
 To develop a subcommand in a third-party package, first create a `typer.Typer()` app with one or more commands.
@@ -323,6 +359,27 @@ If instead we wish to remove keys when set to their default value pass the `pres
 ```
 
 See the [tests](https://github.com/anaconda/anaconda-cli-base/blob/main/tests/test_config.py) for more examples of reading and writing plugin configuration.
+
+### Plugin telemetry
+
+Plugins get baseline command metrics for free. To add custom instrumentation:
+
+```python
+from anaconda_cli_base.telemetry import traced, count, histogram, log_event
+
+@app.command()
+def download(model: str):
+    with traced("models_download", plugin_name="ai", attributes={"model": model}) as span:
+        result = do_download(model)
+        span.add_event("download_complete", {"size_bytes": result.size})
+    count("models_downloaded", plugin_name="ai")
+    histogram("download_size_bytes", plugin_name="ai", value=result.size)
+```
+
+The `plugin_name` should match your registered subcommand name (e.g., `"ai"` for `anaconda ai`).
+This ensures custom telemetry correlates with the automatic command metrics in dashboards.
+
+All functions are no-ops when telemetry is disabled — they will never raise or affect CLI behavior.
 
 ## Setup for development
 
