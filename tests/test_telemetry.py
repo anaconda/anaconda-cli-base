@@ -257,3 +257,171 @@ def test_cli_retry_calls_telemetry_once(
 
     before.assert_called_once()
     after.assert_called_once()
+
+
+def test_count_calls_increment_counter_with_source(
+    mocker: MockerFixture, monkeypatch: MonkeyPatch
+) -> None:
+    import anaconda_cli_base.telemetry as mod
+
+    monkeypatch.setattr(mod, "_initialized", True)
+    inc = mocker.patch("anaconda_opentelemetry.increment_counter", return_value=True)
+
+    from anaconda_cli_base.telemetry import count
+
+    count("models_downloaded", plugin_name="ai", attributes={"model": "llama3"})
+
+    inc.assert_called_once_with(
+        "models_downloaded",
+        by=1,
+        attributes={"model": "llama3", "source": "anaconda-cli-base", "plugin": "ai"},
+    )
+
+
+def test_count_noop_when_disabled(mocker: MockerFixture) -> None:
+    inc = mocker.patch("anaconda_opentelemetry.increment_counter")
+
+    from anaconda_cli_base.telemetry import count
+
+    count("anything", plugin_name="test-plugin")
+
+    inc.assert_not_called()
+
+
+def test_histogram_calls_record_histogram_with_source_and_plugin(
+    mocker: MockerFixture, monkeypatch: MonkeyPatch
+) -> None:
+    import anaconda_cli_base.telemetry as mod
+
+    monkeypatch.setattr(mod, "_initialized", True)
+    hist = mocker.patch("anaconda_opentelemetry.record_histogram", return_value=True)
+
+    from anaconda_cli_base.telemetry import histogram
+
+    histogram(
+        "download_size_bytes",
+        plugin_name="ai",
+        value=1024.5,
+        attributes={"model": "llama3"},
+    )
+
+    hist.assert_called_once_with(
+        "download_size_bytes",
+        1024.5,
+        attributes={"model": "llama3", "source": "anaconda-cli-base", "plugin": "ai"},
+    )
+
+
+def test_histogram_noop_when_disabled(mocker: MockerFixture) -> None:
+    hist = mocker.patch("anaconda_opentelemetry.record_histogram")
+
+    from anaconda_cli_base.telemetry import histogram
+
+    histogram("anything", plugin_name="test-plugin", value=1.0)
+
+    hist.assert_not_called()
+
+
+def test_log_event_calls_send_event_with_source_and_plugin(
+    mocker: MockerFixture, monkeypatch: MonkeyPatch
+) -> None:
+    import anaconda_cli_base.telemetry as mod
+
+    monkeypatch.setattr(mod, "_initialized", True)
+    send = mocker.patch("anaconda_opentelemetry.signals.send_event", return_value=True)
+
+    from anaconda_cli_base.telemetry import log_event
+
+    log_event(
+        "user started chat",
+        "chat_started",
+        plugin_name="ai",
+        attributes={"mode": "stream"},
+    )
+
+    send.assert_called_once_with(
+        "user started chat",
+        "chat_started",
+        attributes={"mode": "stream", "source": "anaconda-cli-base", "plugin": "ai"},
+    )
+
+
+def test_log_event_noop_when_disabled(mocker: MockerFixture) -> None:
+    send = mocker.patch("anaconda_opentelemetry.signals.send_event")
+
+    from anaconda_cli_base.telemetry import log_event
+
+    log_event("anything", "event", plugin_name="test-plugin")
+
+    send.assert_not_called()
+
+
+def test_traced_yields_noop_span_when_disabled() -> None:
+    from anaconda_cli_base.telemetry import traced, _NoOpSpan
+
+    with traced("some_operation", plugin_name="ai") as span:
+        assert isinstance(span, _NoOpSpan)
+
+
+def test_traced_passes_correct_attributes(
+    mocker: MockerFixture, monkeypatch: MonkeyPatch
+) -> None:
+    import anaconda_cli_base.telemetry as mod
+    from contextlib import contextmanager
+
+    monkeypatch.setattr(mod, "_initialized", True)
+
+    @contextmanager
+    def fake_get_trace(name, attributes=None):
+        yield mocker.MagicMock()
+
+    get_trace = mocker.patch(
+        "anaconda_opentelemetry.get_trace", side_effect=fake_get_trace
+    )
+
+    from anaconda_cli_base.telemetry import traced
+
+    with traced("models_download", plugin_name="ai", attributes={"model": "llama3"}):
+        pass
+
+    get_trace.assert_called_once_with(
+        "models_download",
+        attributes={"model": "llama3", "source": "anaconda-cli-base", "plugin": "ai"},
+    )
+
+
+def test_traced_yields_noop_on_exception(
+    mocker: MockerFixture, monkeypatch: MonkeyPatch
+) -> None:
+    import anaconda_cli_base.telemetry as mod
+
+    monkeypatch.setattr(mod, "_initialized", True)
+    mocker.patch("anaconda_opentelemetry.get_trace", side_effect=RuntimeError("broken"))
+
+    from anaconda_cli_base.telemetry import traced, _NoOpSpan
+
+    with traced("will_fail", plugin_name="test-plugin") as span:
+        assert isinstance(span, _NoOpSpan)
+
+
+def test_suppress_http_spans_sets_and_resets() -> None:
+    from anaconda_cli_base.telemetry import suppress_http_spans, is_http_suppressed
+
+    assert is_http_suppressed() is False
+
+    with suppress_http_spans():
+        assert is_http_suppressed() is True
+
+    assert is_http_suppressed() is False
+
+
+def test_suppress_http_spans_nests_correctly() -> None:
+    from anaconda_cli_base.telemetry import suppress_http_spans, is_http_suppressed
+
+    with suppress_http_spans():
+        assert is_http_suppressed() is True
+        with suppress_http_spans():
+            assert is_http_suppressed() is True
+        assert is_http_suppressed() is True
+
+    assert is_http_suppressed() is False
