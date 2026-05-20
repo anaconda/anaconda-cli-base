@@ -1,7 +1,7 @@
 from anaconda_cli_base.config import AnacondaBaseSettings
 
-DEFAULT_TELEMETRY_ENDPOINT = "https://metrics.aa.anaconda.com"
-PUBLIC_TELEMETRY_ENDPOINT = "https://public.telemetry.anaconda.com"
+AUTHENTICATED_ENDPOINT = "https://metrics.aa.anaconda.com"
+PUBLIC_ENDPOINT = "https://public.telemetry.anaconda.com"
 
 
 class TelemetryConfig(AnacondaBaseSettings, table_name="telemetry"):
@@ -11,7 +11,6 @@ class TelemetryConfig(AnacondaBaseSettings, table_name="telemetry"):
     Environment variables use ANACONDA_TELEMETRY_ prefix.
     """
 
-    endpoint: str = DEFAULT_TELEMETRY_ENDPOINT
-    public_endpoint: str = PUBLIC_TELEMETRY_ENDPOINT
-    anon_usage: bool = True
+    enabled: bool = True
+    share_session_identity: bool = True
     skip_internet_check: bool = True

@@ -33,7 +33,7 @@ def _is_enabled() -> bool:
         from anaconda_cli_base.telemetry_config import TelemetryConfig
 
         cfg = TelemetryConfig()
-        return bool(cfg.endpoint)
+        return cfg.enabled
     except Exception:
         return False
 
@@ -50,15 +50,19 @@ def _ensure_initialized() -> None:
         )
 
         from anaconda_cli_base import __version__
-        from anaconda_cli_base.telemetry_config import TelemetryConfig
+        from anaconda_cli_base.telemetry_config import (
+            TelemetryConfig,
+            AUTHENTICATED_ENDPOINT,
+            PUBLIC_ENDPOINT,
+        )
 
         cfg = TelemetryConfig()
 
         api_key = _get_api_key()
         if api_key:
-            endpoint = cfg.endpoint
+            endpoint = AUTHENTICATED_ENDPOINT
         else:
-            endpoint = cfg.public_endpoint
+            endpoint = PUBLIC_ENDPOINT
 
         config = Configuration(
             default_endpoint=endpoint,
@@ -74,7 +78,7 @@ def _ensure_initialized() -> None:
             service_name="anaconda-cli-base",
             service_version=__version__,
             environment="",
-            anon_usage=cfg.anon_usage,
+            anon_usage=cfg.share_session_identity,
         )
         initialize_telemetry(
             config=config,

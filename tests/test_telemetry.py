@@ -32,8 +32,7 @@ def telemetry_enabled(monkeypatch: MonkeyPatch, config_toml: Path) -> None:
     config_toml.write_text(
         dedent("""\
             [telemetry]
-            endpoint = "http://localhost:19999"
-            public_endpoint = "http://localhost:19999"
+            enabled = true
             skip_internet_check = true
         """)
     )
@@ -117,10 +116,21 @@ def test_failed_command_records_error_metric(mock_otel: dict) -> None:
     )
 
 
-def test_telemetry_disabled_when_endpoint_blanked(
+def test_telemetry_disabled_via_config(
     monkeypatch: MonkeyPatch, config_toml: Path
 ) -> None:
-    config_toml.write_text('[telemetry]\nendpoint = ""\n')
+    config_toml.write_text("[telemetry]\nenabled = false\n")
+
+    from anaconda_cli_base.telemetry import _is_enabled
+
+    assert _is_enabled() is False
+
+
+def test_telemetry_disabled_via_env_var(
+    monkeypatch: MonkeyPatch, config_toml: Path
+) -> None:
+    config_toml.write_text("[telemetry]\n")
+    monkeypatch.setenv("ANACONDA_TELEMETRY_ENABLED", "false")
 
     from anaconda_cli_base.telemetry import _is_enabled
 
