@@ -162,8 +162,8 @@ def is_telemetry_enabled() -> bool:
 @contextmanager
 def traced(
     name: str,
+    plugin_name: str,
     attributes: Optional[Dict[str, Any]] = None,
-    source: Optional[str] = None,
 ):
     """Create a child span for tracing a block of work.
 
@@ -172,7 +172,7 @@ def traced(
     giving visibility into where time is spent.
 
     Usage:
-        with traced("models_download", {"model": "llama3"}, source="anaconda-ai") as span:
+        with traced("models_download", plugin_name="ai", attributes={"model": "llama3"}) as span:
             result = do_download(model)
             span.add_event("download_complete", {"size_bytes": result.size})
     """
@@ -182,9 +182,7 @@ def traced(
     try:
         from anaconda_opentelemetry import get_trace
 
-        span_attrs = dict(attributes or {})
-        if source:
-            span_attrs["source"] = source
+        span_attrs = _build_attrs(attributes, plugin_name)
         with get_trace(name, attributes=span_attrs) as span:
             yield span
     except Exception:
@@ -195,9 +193,9 @@ def traced(
 
 def count(
     name: str,
+    plugin_name: str,
     value: int = 1,
     attributes: Optional[Dict[str, Any]] = None,
-    source: Optional[str] = None,
 ) -> None:
     """Increment a counter metric. Use for discrete occurrences you want to sum.
 
@@ -212,19 +210,18 @@ def count(
     try:
         from anaconda_opentelemetry import increment_counter
 
-        metric_attrs = dict(attributes or {})
-        if source:
-            metric_attrs["source"] = source
-        increment_counter(name, by=value, attributes=metric_attrs)
+        increment_counter(
+            name, by=value, attributes=_build_attrs(attributes, plugin_name)
+        )
     except Exception:
         pass
 
 
 def histogram(
     name: str,
+    plugin_name: str,
     value: float,
     attributes: Optional[Dict[str, Any]] = None,
-    source: Optional[str] = None,
 ) -> None:
     """Record a distribution measurement. Use for values you want percentiles of.
 
@@ -239,10 +236,7 @@ def histogram(
     try:
         from anaconda_opentelemetry import record_histogram
 
-        metric_attrs = dict(attributes or {})
-        if source:
-            metric_attrs["source"] = source
-        record_histogram(name, value, attributes=metric_attrs)
+        record_histogram(name, value, attributes=_build_attrs(attributes, plugin_name))
     except Exception:
         pass
 
@@ -250,8 +244,8 @@ def histogram(
 def log_event(
     body: str,
     event_name: str,
+    plugin_name: str,
     attributes: Optional[Dict[str, Any]] = None,
-    source: Optional[str] = None,
 ) -> None:
     """Send a structured log event. No-ops when telemetry is disabled.
 
@@ -266,12 +260,18 @@ def log_event(
     try:
         from anaconda_opentelemetry.signals import send_event
 
-        event_attrs = dict(attributes or {})
-        if source:
-            event_attrs["source"] = source
-        send_event(body, event_name, attributes=event_attrs)
+        send_event(body, event_name, attributes=_build_attrs(attributes, plugin_name))
     except Exception:
         pass
+
+
+def _build_attrs(
+    attributes: Optional[Dict[str, Any]], plugin_name: str
+) -> Dict[str, Any]:
+    attrs = dict(attributes or {})
+    attrs["source"] = "anaconda-cli-base"
+    attrs["plugin"] = plugin_name
+    return attrs
 
 
 @contextmanager
