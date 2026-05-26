@@ -12,8 +12,7 @@ dependencies = [
   "pydantic-settings >=2.3",
   "pydantic >=2.12",
   "tomli",
-  "tomlkit",
-  "anaconda-opentelemetry >=1.1.0"
+  "tomlkit"
 ]
 description = "A base CLI entrypoint supporting Anaconda CLI plugins"
 dynamic = ["version"]
@@ -40,6 +39,9 @@ publish = [
   "build",
   "twine",
   "wheel"
+]
+telemetry = [
+  "anaconda-opentelemetry >=1.1.0"
 ]
 
 [project.scripts]
@@ -147,8 +149,8 @@ deps =
     typer
     rich
 conda_deps =
-    anaconda-auth >0.10.0
-    anaconda-opentelemetry >1.1.0
+    anaconda-auth >=0.11
+    anaconda-opentelemetry >=1.1.0
 conda_channels =
     anaconda-cloud
     defaults
