@@ -69,7 +69,7 @@ def _ensure_initialized() -> None:
 
         config = Configuration(
             default_endpoint=endpoint,
-            default_auth_token=api_key,
+            default_auth_token=api_key,  # type: ignore[arg-type]  # upstream accepts None despite annotation
         )
         config.set_skip_internet_check(True)
         if cfg.proxy_url:
