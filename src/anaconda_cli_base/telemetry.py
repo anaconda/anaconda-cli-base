@@ -7,10 +7,13 @@ OTel SDK are deferred until telemetry is enabled to keep CLI startup fast.
 
 import os
 import time
+from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
+
+AttributeValue = Union[str, bool, int, float, Sequence[Union[str, bool, int, float]]]
 
 _initialized = False
 
@@ -91,7 +94,7 @@ def _ensure_initialized() -> None:
         pass
 
 
-def _get_api_key():
+def _get_api_key() -> Optional[str]:
     try:
         from anaconda_auth.exceptions import TokenNotFoundError
         from anaconda_auth.token import TokenInfo
@@ -104,7 +107,9 @@ def _get_api_key():
         return None
 
 
-def _before_command(args, prog_name) -> Optional[_CommandInfo]:
+def _before_command(
+    args: Optional[Sequence[str]], prog_name: Optional[str]
+) -> Optional[_CommandInfo]:
     _ensure_initialized()
     if not _initialized:
         return None
@@ -122,7 +127,7 @@ def _after_command(
         from anaconda_opentelemetry import increment_counter, record_histogram
 
         duration_ms = (time.perf_counter() - info.start_time) * 1000
-        attrs = {
+        attrs: Dict[str, AttributeValue] = {
             "command": info.command,
             "plugin": info.plugin,
             "source": "anaconda-cli-base",
@@ -131,7 +136,7 @@ def _after_command(
         record_histogram("cli_command_duration_ms", duration_ms, attrs)
         increment_counter("cli_command_invoked", attributes=attrs)
         if not success:
-            error_attrs = {
+            error_attrs: Dict[str, AttributeValue] = {
                 **attrs,
                 "error.type": type(error).__name__ if error else "unknown",
             }
@@ -169,7 +174,7 @@ def traced(
     name: str,
     plugin_name: str,
     attributes: Optional[Dict[str, Any]] = None,
-):
+) -> Generator[Any, None, None]:
     """Create a child span for tracing a block of work.
 
     Use to measure duration and capture events within a logical operation.
@@ -280,7 +285,7 @@ def _build_attrs(
 
 
 @contextmanager
-def suppress_http_spans():
+def suppress_http_spans() -> Generator[None, None, None]:
     """Suppress HTTP-level spans inside a block to reduce trace noise.
 
     Use when polling or retrying produces many identical HTTP spans that
@@ -307,14 +312,14 @@ def is_http_suppressed() -> bool:
 
 
 class _NoOpSpan:
-    def add_event(self, name: str, attributes=None):
+    def add_event(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
         pass
 
-    def add_exception(self, exc: Exception):
+    def add_exception(self, exc: Exception) -> None:
         pass
 
-    def set_error_status(self, msg: Optional[str] = None):
+    def set_error_status(self, msg: Optional[str] = None) -> None:
         pass
 
-    def add_attributes(self, attributes: dict):
+    def add_attributes(self, attributes: Dict[str, Any]) -> None:
         pass

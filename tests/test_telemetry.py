@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from textwrap import dedent
-from typing import Generator, Iterator
+from typing import Any, Generator, Iterator
 from unittest.mock import call
 
 import pytest
@@ -382,7 +382,7 @@ def test_traced_passes_correct_attributes(
     monkeypatch.setattr(mod, "_initialized", True)
 
     @contextmanager
-    def fake_get_trace(name, attributes=None):
+    def fake_get_trace(name: str, attributes: Any = None) -> Generator[Any, None, None]:
         yield mocker.MagicMock()
 
     get_trace = mocker.patch(
