@@ -151,6 +151,7 @@ deps =
 conda_deps =
     anaconda-auth >=0.11
     anaconda-opentelemetry >=1.1.0
+    pip
 conda_channels =
     anaconda-cloud
     defaults
