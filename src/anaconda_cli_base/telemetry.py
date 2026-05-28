@@ -119,6 +119,7 @@ def _get_api_key() -> Optional[str]:
 def _before_command(
     args: Optional[Sequence[str]], prog_name: Optional[str]
 ) -> Optional[_CommandInfo]:
+    """Start tracking a command. Returns None when telemetry is inactive."""
     _ensure_initialized()
     if not _initialized:
         return None
