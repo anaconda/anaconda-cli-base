@@ -5,6 +5,7 @@ When no endpoint is set, every function is a no-op. Actual imports of the
 OTel SDK are deferred until telemetry is enabled to keep CLI startup fast.
 """
 
+import logging
 import os
 import time
 from collections.abc import Generator, Sequence
@@ -12,6 +13,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Union
+
+logger = logging.getLogger(__name__)
 
 AttributeValue = Union[str, bool, int, float, Sequence[Union[str, bool, int, float]]]
 
@@ -90,8 +93,14 @@ def _ensure_initialized() -> None:
             signal_types=["metrics", "tracing"],
         )
         _initialized = True
-    except Exception:
+    except ImportError:
+        # anaconda-opentelemetry not installed — expected in environments
+        # without the [telemetry] extra.
         pass
+    except Exception as exc:
+        # SDK is installed but initialization failed (bad endpoint, auth,
+        # version mismatch, etc.). Log so misconfiguration is diagnosable.
+        logger.warning("Telemetry enabled but failed to initialize: %s", exc)
 
 
 def _get_api_key() -> Optional[str]:
