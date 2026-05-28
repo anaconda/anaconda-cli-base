@@ -435,3 +435,71 @@ def test_suppress_http_spans_nests_correctly() -> None:
         assert is_http_suppressed() is True
 
     assert is_http_suppressed() is False
+
+
+def test_get_otel_handler_returns_null_handler_when_disabled() -> None:
+    import logging
+
+    from anaconda_cli_base.telemetry import get_otel_handler
+
+    handler = get_otel_handler()
+    assert isinstance(handler, logging.NullHandler)
+
+
+def test_get_otel_handler_returns_logging_handler_when_enabled(
+    mocker: MockerFixture, monkeypatch: MonkeyPatch
+) -> None:
+    import logging
+    import anaconda_cli_base.telemetry as mod
+
+    monkeypatch.setattr(mod, "_initialized", True)
+
+    fake_handler = logging.Handler()
+    mocker.patch(
+        "anaconda_opentelemetry.signals.get_telemetry_logger_handler",
+        return_value=fake_handler,
+    )
+
+    from anaconda_cli_base.telemetry import get_otel_handler
+
+    handler = get_otel_handler()
+    assert handler is fake_handler
+    assert handler.level == logging.WARNING
+
+
+def test_get_otel_handler_respects_custom_level(
+    mocker: MockerFixture, monkeypatch: MonkeyPatch
+) -> None:
+    import logging
+    import anaconda_cli_base.telemetry as mod
+
+    monkeypatch.setattr(mod, "_initialized", True)
+
+    fake_handler = logging.Handler()
+    mocker.patch(
+        "anaconda_opentelemetry.signals.get_telemetry_logger_handler",
+        return_value=fake_handler,
+    )
+
+    from anaconda_cli_base.telemetry import get_otel_handler
+
+    handler = get_otel_handler(level=logging.ERROR)
+    assert handler.level == logging.ERROR
+
+
+def test_get_otel_handler_returns_null_handler_on_import_error(
+    mocker: MockerFixture, monkeypatch: MonkeyPatch
+) -> None:
+    import logging
+    import anaconda_cli_base.telemetry as mod
+
+    monkeypatch.setattr(mod, "_initialized", True)
+    mocker.patch(
+        "anaconda_opentelemetry.signals.get_telemetry_logger_handler",
+        side_effect=ImportError("no module"),
+    )
+
+    from anaconda_cli_base.telemetry import get_otel_handler
+
+    handler = get_otel_handler()
+    assert isinstance(handler, logging.NullHandler)

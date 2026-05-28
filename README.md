@@ -33,6 +33,7 @@ as environment variables with the `ANACONDA_TELEMETRY_` prefix.
 | `enabled` | `ANACONDA_TELEMETRY_ENABLED` | `true` | Enable or disable all CLI telemetry |
 | `share_session_identity` | `ANACONDA_TELEMETRY_SHARE_SESSION_IDENTITY` | `true` | Include anonymous session tokens for usage correlation |
 | `proxy_url` | `ANACONDA_TELEMETRY_PROXY_URL` | None | HTTP proxy for telemetry export (for corporate networks) |
+| `flush_timeout_ms` | `ANACONDA_TELEMETRY_FLUSH_TIMEOUT_MS` | `500` | Max milliseconds to wait for telemetry flush on CLI exit |
 
 When `share_session_identity` is `true`, hashed machine and session tokens are included with telemetry
 data. These allow Anaconda to correlate usage patterns across CLI sessions without identifying you personally.
@@ -380,6 +381,36 @@ The `plugin_name` should match your registered subcommand name (e.g., `"ai"` for
 This ensures custom telemetry correlates with the automatic command metrics in dashboards.
 
 All functions are no-ops when telemetry is disabled — they will never raise or affect CLI behavior.
+
+### Logging handler
+
+For error and warning capture via Python's standard `logging` module, attach the OTel handler
+to your plugin's logger. By default log records at WARNING and above are exported to the telemetry backend
+while still flowing to any other handlers (stderr, file) you have configured.
+
+```python
+import logging
+from anaconda_cli_base.telemetry import get_otel_handler
+
+log = logging.getLogger("anaconda_ai")
+log.addHandler(get_otel_handler())
+
+# WARNING+ goes to OTel; all levels still go to other handlers
+log.warning("retry attempt", extra={"attempt": 3, "endpoint": url})
+log.error("download failed", extra={"model": model, "error.type": "TimeoutError"})
+```
+
+Pass a custom level to change the threshold:
+
+```python
+log.addHandler(get_otel_handler(level=logging.ERROR))  # Only errors
+```
+
+When telemetry is disabled or `anaconda-opentelemetry` is not installed, `get_otel_handler()`
+returns a `NullHandler` — safe to call unconditionally with zero overhead.
+
+Use `get_otel_handler()` for structured errors/warnings. Use `log_event()` for business events
+that shouldn't appear in developer console output (e.g., `"model_downloaded"`, `"session_started"`).
 
 ## Setup for development
 

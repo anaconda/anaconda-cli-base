@@ -91,7 +91,7 @@ def _ensure_initialized() -> None:
         initialize_telemetry(
             config=config,
             attributes=attrs,
-            signal_types=["metrics", "tracing"],
+            signal_types=["logging", "metrics", "tracing"],
         )
         _flush_timeout_ms = cfg.flush_timeout_ms
         _initialized = True
@@ -161,7 +161,7 @@ def _after_command(
 
 def _shutdown_telemetry() -> None:
     try:
-        from opentelemetry import trace, metrics
+        from opentelemetry import trace, metrics, _logs
 
         trace_provider = trace.get_tracer_provider()
         if hasattr(trace_provider, "shutdown"):
@@ -170,12 +170,50 @@ def _shutdown_telemetry() -> None:
         meter_provider = metrics.get_meter_provider()
         if hasattr(meter_provider, "shutdown"):
             meter_provider.shutdown(timeout_millis=_flush_timeout_ms)
+
+        logger_provider = _logs.get_logger_provider()
+        if hasattr(logger_provider, "shutdown"):
+            logger_provider.shutdown(timeout_millis=_flush_timeout_ms)
     except Exception:
         pass
 
 
 def is_telemetry_enabled() -> bool:
     return _initialized
+
+
+def get_otel_handler(level: int = logging.WARNING) -> logging.Handler:
+    """Get a logging handler that exports log records to the OTel backend.
+
+    Attach to any named logger to forward records at *level* or above to the
+    telemetry collector. The handler is additive — existing handlers (stderr,
+    file) continue to work normally.
+
+    Returns a NullHandler when telemetry is inactive or unavailable, so it is
+    always safe to call unconditionally.
+
+    Usage:
+        import logging
+        from anaconda_cli_base.telemetry import get_otel_handler
+
+        log = logging.getLogger("anaconda_ai")
+        log.addHandler(get_otel_handler())
+
+        # Only WARNING+ goes to OTel; all levels still go to other handlers
+        log.error("download failed", extra={"model": model, "error.type": "TimeoutError"})
+    """
+    if not _initialized:
+        return logging.NullHandler()
+    try:
+        from anaconda_opentelemetry.signals import get_telemetry_logger_handler
+
+        handler = get_telemetry_logger_handler()
+        if handler is None:
+            return logging.NullHandler()
+        handler.setLevel(level)
+        return handler
+    except Exception:
+        return logging.NullHandler()
 
 
 @contextmanager
