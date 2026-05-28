@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 AttributeValue = Union[str, bool, int, float, Sequence[Union[str, bool, int, float]]]
 
 _initialized = False
+_flush_timeout_ms = 500
 
 _suppress_http: ContextVar[bool] = ContextVar("_suppress_http", default=False)
 
@@ -45,7 +46,7 @@ def _is_enabled() -> bool:
 
 
 def _ensure_initialized() -> None:
-    global _initialized
+    global _initialized, _flush_timeout_ms
     if _initialized or not _is_enabled():
         return
     try:
@@ -92,6 +93,7 @@ def _ensure_initialized() -> None:
             attributes=attrs,
             signal_types=["metrics", "tracing"],
         )
+        _flush_timeout_ms = cfg.flush_timeout_ms
         _initialized = True
     except ImportError:
         # anaconda-opentelemetry not installed — expected in environments
@@ -157,20 +159,17 @@ def _after_command(
     _shutdown_telemetry()
 
 
-_FLUSH_TIMEOUT_MS = 500
-
-
 def _shutdown_telemetry() -> None:
     try:
         from opentelemetry import trace, metrics
 
         trace_provider = trace.get_tracer_provider()
         if hasattr(trace_provider, "shutdown"):
-            trace_provider.shutdown(timeout_millis=_FLUSH_TIMEOUT_MS)
+            trace_provider.shutdown(timeout_millis=_flush_timeout_ms)
 
         meter_provider = metrics.get_meter_provider()
         if hasattr(meter_provider, "shutdown"):
-            meter_provider.shutdown(timeout_millis=_FLUSH_TIMEOUT_MS)
+            meter_provider.shutdown(timeout_millis=_flush_timeout_ms)
     except Exception:
         pass
 
