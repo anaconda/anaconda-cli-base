@@ -12,6 +12,7 @@ from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any, Dict, Optional, Union
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,18 @@ _initialized = False
 _flush_timeout_ms = 500
 
 _suppress_http: ContextVar[bool] = ContextVar("_suppress_http", default=False)
+
+
+@lru_cache(maxsize=1)
+def _get_plugin_versions() -> Dict[str, str]:
+    from importlib.metadata import entry_points
+    from anaconda_cli_base import __version__
+
+    versions = {"anaconda-cli-base": __version__}
+    for ep in entry_points(group="anaconda_cli.subcommand"):
+        if ep.dist:
+            versions[ep.dist.name] = ep.dist.metadata["Version"]
+    return versions
 
 
 @dataclass
@@ -90,10 +103,6 @@ def _ensure_initialized() -> None:
 
         service_version = re.sub(r"[^a-zA-Z0-9._-]", ".", __version__)[:30]
 
-        from anaconda_cli_base.plugins import loaded_plugin_versions
-
-        plugin_versions_dict = {name: ver for name, ver in loaded_plugin_versions}
-
         attrs = ResourceAttributes(
             service_name="anaconda-cli-base",
             service_version=service_version,
@@ -101,7 +110,7 @@ def _ensure_initialized() -> None:
             environment="production",
             anon_usage=cfg.share_session_identity,
         )
-        attrs.set_attributes(plugin_versions=plugin_versions_dict)
+        attrs.set_attributes(plugin_versions=_get_plugin_versions())
         initialize_telemetry(
             config=config,
             attributes=attrs,

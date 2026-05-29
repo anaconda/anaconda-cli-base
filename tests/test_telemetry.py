@@ -17,6 +17,7 @@ def isolate_telemetry(monkeypatch: MonkeyPatch) -> Generator[None, None, None]:
     import anaconda_cli_base.telemetry as mod
 
     monkeypatch.setattr(mod, "_initialized", False)
+    monkeypatch.setattr(mod, "_get_plugin_versions", lambda: {})
     yield
 
 
