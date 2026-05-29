@@ -37,10 +37,46 @@ def _get_plugin_versions() -> Dict[str, str]:
     return versions
 
 
+def _detect_ci_vendor() -> str:
+    ci_env_vars = {
+        "GITHUB_ACTIONS": "github-actions",
+        "GITLAB_CI": "gitlab-ci",
+        "JENKINS_URL": "jenkins",
+        "CIRCLECI": "circleci",
+        "TRAVIS": "travis-ci",
+        "BUILDKITE": "buildkite",
+        "TF_BUILD": "azure-pipelines",
+        "CODEBUILD_BUILD_ID": "aws-codebuild",
+        "TEAMCITY_VERSION": "teamcity",
+        "BITBUCKET_PIPELINE_UUID": "bitbucket-pipelines",
+    }
+    for env_var, vendor in ci_env_vars.items():
+        if os.environ.get(env_var):
+            return vendor
+    if os.environ.get("CI"):
+        return "unknown-ci"
+    return ""
+
+
+def _is_first_run() -> bool:
+    from pathlib import Path
+
+    marker = Path.home() / ".anaconda" / ".telemetry_initialized"
+    if marker.exists():
+        return False
+    try:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.touch()
+    except OSError:
+        pass
+    return True
+
+
 @dataclass
 class _CommandInfo:
     command: str
     plugin: str
+    flags: str
     start_time: float = field(default_factory=time.perf_counter)
 
 
@@ -110,7 +146,12 @@ def _ensure_initialized() -> None:
             environment="production",
             anon_usage=cfg.share_session_identity,
         )
-        attrs.set_attributes(plugin_versions=_get_plugin_versions())
+        attrs.set_attributes(
+            plugin_versions=_get_plugin_versions(),
+            ci_vendor=_detect_ci_vendor(),
+            auth_state="authenticated" if api_key else "anonymous",
+            is_first_run=_is_first_run(),
+        )
         initialize_telemetry(
             config=config,
             attributes=attrs,
@@ -151,11 +192,15 @@ def _before_command(
         return None
     command_name = " ".join(args[:2]) if args else prog_name or "unknown"
     plugin_name = args[0] if args else "root"
-    return _CommandInfo(command=command_name, plugin=plugin_name)
+    flags = ",".join(a.split("=")[0] for a in (args or []) if a.startswith("-"))
+    return _CommandInfo(command=command_name, plugin=plugin_name, flags=flags)
 
 
 def _after_command(
-    info: Optional[_CommandInfo], success: bool, error: Optional[Exception] = None
+    info: Optional[_CommandInfo],
+    success: bool,
+    error: Optional[Exception] = None,
+    exit_code: int = 0,
 ) -> None:
     if info is None:
         return
@@ -167,6 +212,8 @@ def _after_command(
             "command": info.command,
             "plugin": info.plugin,
             "source": "anaconda-cli-base",
+            "flags": info.flags,
+            "exit_code": exit_code if not success else 0,
         }
 
         record_histogram("cli_command_duration_ms", duration_ms, attrs)

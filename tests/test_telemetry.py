@@ -85,6 +85,8 @@ def test_successful_command_records_metrics(mock_otel: dict) -> None:
             "command": "ai chat",
             "plugin": "ai",
             "source": "anaconda-cli-base",
+            "flags": "",
+            "exit_code": 0,
         },
     )
 
@@ -104,6 +106,8 @@ def test_failed_command_records_error_metric(mock_otel: dict) -> None:
             "command": "ai chat",
             "plugin": "ai",
             "source": "anaconda-cli-base",
+            "flags": "",
+            "exit_code": 0,
         },
     )
     assert calls[1] == call(
@@ -112,6 +116,8 @@ def test_failed_command_records_error_metric(mock_otel: dict) -> None:
             "command": "ai chat",
             "plugin": "ai",
             "source": "anaconda-cli-base",
+            "flags": "",
+            "exit_code": 0,
             "error.type": "RuntimeError",
         },
     )

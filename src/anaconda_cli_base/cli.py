@@ -60,7 +60,9 @@ class ErrorHandledGroup(TyperGroup):
                 _after_command(command_info, success=True)
         except SystemExit as e:
             if not self._retrying:
-                _after_command(command_info, success=(e.code in (None, 0)))
+                _after_command(
+                    command_info, success=(e.code in (None, 0)), exit_code=e.code or 0
+                )
             raise
         except Exception as e:
             ctx = self._get_context(args, prog_name, windows_expand_args, **extra)
@@ -83,14 +85,20 @@ class ErrorHandledGroup(TyperGroup):
                         **extra,
                     )
                 except SystemExit as retry_exit:
-                    _after_command(command_info, success=(retry_exit.code in (None, 0)))
+                    _after_command(
+                        command_info,
+                        success=(retry_exit.code in (None, 0)),
+                        exit_code=retry_exit.code or 0,
+                    )
                     raise
                 finally:
                     self._retrying = False
                 _after_command(command_info, success=True)
             else:
                 if not self._retrying:
-                    _after_command(command_info, success=False, error=e)
+                    _after_command(
+                        command_info, success=False, error=e, exit_code=exit_code
+                    )
                 if not args:
                     args = sys.argv[1:]
                 cmd = " ".join(args or [])
