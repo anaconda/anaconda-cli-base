@@ -50,6 +50,8 @@ def _ensure_initialized() -> None:
     if _initialized or not _is_enabled():
         return
     try:
+        os.environ.setdefault("GRPC_VERBOSITY", "NONE")
+
         from anaconda_opentelemetry.config import Configuration
         from anaconda_opentelemetry.attributes import ResourceAttributes
         from anaconda_opentelemetry.signals import initialize_telemetry
@@ -101,8 +103,9 @@ def _ensure_initialized() -> None:
         pass
     except Exception as exc:
         # SDK is installed but initialization failed (bad endpoint, auth,
-        # version mismatch, etc.). Log so misconfiguration is diagnosable.
-        logger.warning("Telemetry enabled but failed to initialize: %s", exc)
+        # version mismatch, etc.). Never surface to end users — telemetry
+        # must fail silently. Diagnosable only at DEBUG level.
+        logger.debug("Telemetry initialization failed: %s", exc)
 
 
 def _get_api_key() -> Optional[str]:
