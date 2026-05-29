@@ -44,7 +44,8 @@ class ErrorHandledGroup(TyperGroup):
     ) -> None:
         command_info = None
         if not self._retrying:
-            command_info = _before_command(args, prog_name)
+            resolved_args = args if args is not None else sys.argv[1:]
+            command_info = _before_command(resolved_args, prog_name)
 
         try:
             super().main(
