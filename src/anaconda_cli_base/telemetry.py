@@ -158,18 +158,38 @@ def _after_command(
 
 
 def _shutdown_telemetry() -> None:
+    """Flush all telemetry and disable atexit handlers to prevent exit hangs."""
     try:
+        import atexit
+
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.metrics import MeterProvider
+        from opentelemetry.sdk._logs import LoggerProvider
         from opentelemetry import trace, metrics
+
+        from anaconda_opentelemetry.logging import _AnacondaLogger
 
         trace_provider = trace.get_tracer_provider()
         if isinstance(trace_provider, TracerProvider):
-            trace_provider.shutdown(timeout_millis=_flush_timeout_ms)
+            trace_provider.force_flush(timeout_millis=_flush_timeout_ms)
+            if trace_provider._atexit_handler is not None:
+                atexit.unregister(trace_provider._atexit_handler)
+                trace_provider._atexit_handler = None
 
         meter_provider = metrics.get_meter_provider()
         if isinstance(meter_provider, MeterProvider):
-            meter_provider.shutdown(timeout_millis=_flush_timeout_ms)
+            meter_provider.force_flush(timeout_millis=_flush_timeout_ms)
+            if meter_provider._atexit_handler is not None:
+                atexit.unregister(meter_provider._atexit_handler)
+                meter_provider._atexit_handler = None
+
+        if _AnacondaLogger._instance is not None:
+            logger_provider = _AnacondaLogger._instance._provider
+            if isinstance(logger_provider, LoggerProvider):
+                logger_provider.force_flush(timeout_millis=_flush_timeout_ms)
+                if logger_provider._at_exit_handler is not None:
+                    atexit.unregister(logger_provider._at_exit_handler)
+                    logger_provider._at_exit_handler = None
     except Exception:
         pass
 
