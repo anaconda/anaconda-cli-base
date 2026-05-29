@@ -161,19 +161,17 @@ def _after_command(
 
 def _shutdown_telemetry() -> None:
     try:
-        from opentelemetry import trace, metrics, _logs
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.metrics import MeterProvider
+        from opentelemetry import trace, metrics
 
         trace_provider = trace.get_tracer_provider()
-        if hasattr(trace_provider, "shutdown"):
+        if isinstance(trace_provider, TracerProvider):
             trace_provider.shutdown(timeout_millis=_flush_timeout_ms)
 
         meter_provider = metrics.get_meter_provider()
-        if hasattr(meter_provider, "shutdown"):
+        if isinstance(meter_provider, MeterProvider):
             meter_provider.shutdown(timeout_millis=_flush_timeout_ms)
-
-        logger_provider = _logs.get_logger_provider()
-        if hasattr(logger_provider, "shutdown"):
-            logger_provider.shutdown(timeout_millis=_flush_timeout_ms)
     except Exception:
         pass
 
