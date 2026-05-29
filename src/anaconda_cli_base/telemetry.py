@@ -56,6 +56,8 @@ def _ensure_initialized() -> None:
         from anaconda_opentelemetry.attributes import ResourceAttributes
         from anaconda_opentelemetry.signals import initialize_telemetry
 
+        import re
+
         from anaconda_cli_base import __version__
         from anaconda_cli_base.telemetry_config import (
             TelemetryConfig,
@@ -84,9 +86,11 @@ def _ensure_initialized() -> None:
         config.set_metrics_export_interval_ms(1000)
         config.set_tracing_export_interval_ms(1000)
 
+        service_version = re.sub(r"[^a-zA-Z0-9._-]", ".", __version__)[:30]
+
         attrs = ResourceAttributes(
             service_name="anaconda-cli-base",
-            service_version=__version__,
+            service_version=service_version,
             environment="",
             anon_usage=cfg.share_session_identity,
         )
