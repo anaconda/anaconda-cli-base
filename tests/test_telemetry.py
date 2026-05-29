@@ -119,6 +119,8 @@ def test_failed_command_records_error_metric(mock_otel: dict) -> None:
             "flags": "",
             "exit_code": 0,
             "error.type": "RuntimeError",
+            "error.code": "",
+            "error.message": "connection timeout",
         },
     )
 

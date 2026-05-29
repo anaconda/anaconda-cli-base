@@ -72,6 +72,32 @@ def _is_first_run() -> bool:
     return True
 
 
+def _detect_ai_agent() -> str:
+    indicators = {
+        "CURSOR_TRACE_ID": "cursor",
+        "CURSOR_SESSION_ID": "cursor",
+        "CLINE_TASK_ID": "cline",
+        "CONTINUE_GLOBAL_DIR": "continue",
+        "WINDSURF_SESSION_ID": "windsurf",
+        "OPENCODE": "opencode",
+    }
+    for env_var, agent in indicators.items():
+        if os.environ.get(env_var):
+            return agent
+    term_program = os.environ.get("TERM_PROGRAM", "")
+    if "cursor" in term_program.lower():
+        return "cursor"
+    if os.environ.get("CLAUDE_CODE"):
+        return "claude-code"
+    return ""
+
+
+def _detect_tty() -> bool:
+    import sys
+
+    return sys.stdout.isatty()
+
+
 @dataclass
 class _CommandInfo:
     command: str
@@ -151,6 +177,8 @@ def _ensure_initialized() -> None:
             ci_vendor=_detect_ci_vendor(),
             auth_state="authenticated" if api_key else "anonymous",
             is_first_run=_is_first_run(),
+            ai_agent=_detect_ai_agent(),
+            is_tty=_detect_tty(),
         )
         initialize_telemetry(
             config=config,
@@ -222,6 +250,8 @@ def _after_command(
             error_attrs: Dict[str, AttributeValue] = {
                 **attrs,
                 "error.type": type(error).__name__ if error else "unknown",
+                "error.code": str(getattr(error, "code", getattr(error, "errno", ""))),
+                "error.message": str(error)[:500] if error else "",
             }
             increment_counter("cli_command_errors", attributes=error_attrs)
     except Exception:
