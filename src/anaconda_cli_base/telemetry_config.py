@@ -14,6 +14,7 @@ class TelemetryConfig(AnacondaBaseSettings, table_name="telemetry"):
     """
 
     enabled: bool = True
+    endpoint: Optional[str] = None
     share_session_identity: bool = True
     proxy_url: Optional[str] = None
     flush_timeout_ms: int = 500

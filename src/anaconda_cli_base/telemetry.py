@@ -64,7 +64,9 @@ def _ensure_initialized() -> None:
         cfg = TelemetryConfig()
 
         api_key = _get_api_key()
-        if api_key:
+        if cfg.endpoint:
+            endpoint = cfg.endpoint
+        elif api_key:
             endpoint = AUTHENTICATED_ENDPOINT
         else:
             endpoint = PUBLIC_ENDPOINT
