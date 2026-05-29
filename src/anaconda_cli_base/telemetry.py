@@ -50,11 +50,9 @@ def _ensure_initialized() -> None:
     if _initialized or not _is_enabled():
         return
     try:
-        from anaconda_opentelemetry import (
-            Configuration,
-            ResourceAttributes,
-            initialize_telemetry,
-        )
+        from anaconda_opentelemetry.config import Configuration
+        from anaconda_opentelemetry.attributes import ResourceAttributes
+        from anaconda_opentelemetry.signals import initialize_telemetry
 
         from anaconda_cli_base import __version__
         from anaconda_cli_base.telemetry_config import (
