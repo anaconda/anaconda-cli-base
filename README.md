@@ -375,6 +375,7 @@ def download(model: str):
         span.add_event("download_complete", {"size_bytes": result.size})
     count("models_downloaded", plugin_name="ai")
     histogram("download_size_bytes", plugin_name="ai", value=result.size)
+    log_event("user downloaded a model", event_name="model_downloaded", plugin_name="ai", attributes={"model": model})
 ```
 
 The `plugin_name` should match your registered subcommand name (e.g., `"ai"` for `anaconda ai`).
