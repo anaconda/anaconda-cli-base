@@ -276,6 +276,8 @@ def traced(
             span.add_event("download_complete", {"size_bytes": result.size})
     """
     if not _initialized:
+        _ensure_initialized()
+    if not _initialized:
         yield _NoOpSpan()
         return
     try:
@@ -305,6 +307,8 @@ def count(
     Examples: commands executed, models downloaded, auth failures.
     """
     if not _initialized:
+        _ensure_initialized()
+    if not _initialized:
         return
     try:
         from anaconda_opentelemetry import increment_counter
@@ -331,6 +335,8 @@ def histogram(
     Examples: command duration, download size, response time.
     """
     if not _initialized:
+        _ensure_initialized()
+    if not _initialized:
         return
     try:
         from anaconda_opentelemetry import record_histogram
@@ -354,6 +360,8 @@ def log_event(
     telemetry, even if _initialized becomes stale or the upstream behavior
     changes.
     """
+    if not _initialized:
+        _ensure_initialized()
     if not _initialized:
         return
     try:
