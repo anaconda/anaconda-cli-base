@@ -29,6 +29,7 @@ anaconda = "anaconda_cli_base.cli:app"
 [project.optional-dependencies]
 dev = [
   "mypy",
+  "oteltest",
   "pytest",
   "pytest-cov",
   "pytest-mock",
