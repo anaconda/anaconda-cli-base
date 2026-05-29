@@ -24,6 +24,8 @@ from anaconda_cli_base import __version__
 
 log = logging.getLogger(__name__)
 
+loaded_plugin_versions: Set[Tuple[str, str]] = set()
+
 PLUGIN_GROUP_NAME = "anaconda_cli.subcommand"
 
 # Plugins which are available but hidden from help text
@@ -279,6 +281,7 @@ def _sort_selectors(
 
 def load_registered_subcommands(app: typer.Typer) -> None:
     """Load all subcommands from plugins."""
+    global loaded_plugin_versions
     subcommand_entry_points = _load_entry_points_for_group(PLUGIN_GROUP_NAME)
     auth_handlers: Dict[PluginName, typer.Typer] = {}
     auth_handler_selectors: List[Tuple[SiteName, SiteDisplayName]] = []
@@ -320,6 +323,8 @@ def load_registered_subcommands(app: typer.Typer) -> None:
             name,
             value,
         )
+
+    loaded_plugin_versions = plugin_versions
 
     @app.command("versions", hidden=True)
     def versions() -> None:

@@ -86,14 +86,22 @@ def _ensure_initialized() -> None:
         config.set_metrics_export_interval_ms(1000)
         config.set_tracing_export_interval_ms(1000)
 
+        import platform as platform_mod
+
         service_version = re.sub(r"[^a-zA-Z0-9._-]", ".", __version__)[:30]
+
+        from anaconda_cli_base.plugins import loaded_plugin_versions
+
+        plugin_versions_dict = {name: ver for name, ver in loaded_plugin_versions}
 
         attrs = ResourceAttributes(
             service_name="anaconda-cli-base",
             service_version=service_version,
-            environment="",
+            platform=f"{platform_mod.system().lower()}-{platform_mod.machine()}",
+            environment="production",
             anon_usage=cfg.share_session_identity,
         )
+        attrs.set_attributes(plugin_versions=plugin_versions_dict)
         initialize_telemetry(
             config=config,
             attributes=attrs,
