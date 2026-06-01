@@ -16,8 +16,8 @@ import time
 
 import pytest
 
-from oteltest.sink import HttpSink  # type: ignore[import-not-found,import-untyped]
-from oteltest.sink.handler import AccumulatingHandler, Telemetry  # type: ignore[import-not-found,import-untyped]
+from oteltest.sink import HttpSink
+from oteltest.sink.handler import AccumulatingHandler, Telemetry
 
 
 def _free_port() -> int:

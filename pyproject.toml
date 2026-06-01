@@ -87,7 +87,7 @@ module = "rich_click.*"
 
 [[tool.mypy.overrides]]
 ignore_missing_imports = true
-module = "oteltel.*"
+module = "oteltest.*"
 
 [tool.pytest.ini_options]
 addopts = [
@@ -134,6 +134,7 @@ deps =
     pytest-cov
     pytest-mock
     typer !=0.12.2
+    oteltest
 conda_deps =
     pip
     anaconda-auth >=0.11
@@ -174,6 +175,7 @@ deps =
     types-requests
     typer
     rich
+    oteltest
 conda_deps =
     anaconda-auth >=0.11
     anaconda-opentelemetry >=1.1.0
