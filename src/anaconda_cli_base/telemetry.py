@@ -150,8 +150,8 @@ def _ensure_initialized() -> None:
             if config.proxy_url:
                 otel_config.set_proxy_url(config.proxy_url)
 
-            otel_config.set_metrics_export_interval_ms(1000)
-            otel_config.set_tracing_export_interval_ms(1000)
+            otel_config.set_metrics_export_interval_ms(config.export_interval_ms)
+            otel_config.set_tracing_export_interval_ms(config.export_interval_ms)
 
             import platform as platform_mod
 

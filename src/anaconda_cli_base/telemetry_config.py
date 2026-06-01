@@ -21,6 +21,7 @@ class TelemetryConfig(AnacondaBaseSettings, table_name="telemetry"):
     share_session_identity: bool = True
     proxy_url: Optional[str] = None
     flush_timeout_ms: int = 500
+    export_interval_ms: int = 60000
 
     @field_validator("enabled", mode="before")
     @classmethod
