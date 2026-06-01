@@ -142,6 +142,7 @@ commands = pytest -m "not integration"
 [testenv:py310-otel]
 deps =
     {[testenv]deps}
+    oteltest
 conda_deps =
     {[testenv]conda_deps}
     anaconda-opentelemetry >=1.1.0
