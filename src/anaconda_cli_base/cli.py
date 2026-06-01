@@ -61,7 +61,9 @@ class ErrorHandledGroup(TyperGroup):
         except SystemExit as e:
             if not self._retrying:
                 _after_command(
-                    command_info, success=(e.code in (None, 0)), exit_code=e.code or 0
+                    command_info,
+                    success=(e.code in (None, 0)),
+                    exit_code=int(e.code or 0),
                 )
             raise
         except Exception as e:
@@ -88,7 +90,7 @@ class ErrorHandledGroup(TyperGroup):
                     _after_command(
                         command_info,
                         success=(retry_exit.code in (None, 0)),
-                        exit_code=retry_exit.code or 0,
+                        exit_code=int(retry_exit.code or 0),
                     )
                     raise
                 finally:

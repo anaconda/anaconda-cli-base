@@ -16,8 +16,8 @@ import time
 
 import pytest
 
-from oteltest.sink import HttpSink
-from oteltest.sink.handler import AccumulatingHandler, Telemetry
+from oteltest.sink import HttpSink  # type: ignore[import-untyped]
+from oteltest.sink.handler import AccumulatingHandler, Telemetry  # type: ignore[import-untyped]
 
 
 def _free_port() -> int:
@@ -37,7 +37,7 @@ def _wait_for(telemetry: Telemetry, kind: str, timeout: float = 5.0) -> None:
 
 
 @pytest.fixture(scope="module")
-def otlp_sink():
+def otlp_sink():  # type: ignore[no-untyped-def]
     import anaconda_cli_base.telemetry as mod
 
     port = _free_port()
@@ -73,14 +73,14 @@ def otlp_sink():
 
 
 @pytest.fixture()
-def otlp(otlp_sink) -> Telemetry:
+def otlp(otlp_sink) -> Telemetry:  # type: ignore[no-untyped-def]
     return otlp_sink.telemetry
 
 
 pytestmark = pytest.mark.integration
 
 
-def _flush():
+def _flush() -> None:
     from opentelemetry import trace, metrics
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.metrics import MeterProvider
@@ -229,8 +229,10 @@ class TestCLIIntegration:
 
         info = _before_command(["test", "subcommand"], "anaconda")
         assert info is not None
+        from typing import Any
+
         duration_ms = (time.perf_counter() - info.start_time) * 1000
-        attrs = {
+        attrs: dict[str, Any] = {
             "command": info.command,
             "plugin": info.plugin,
             "source": "anaconda-cli-base",

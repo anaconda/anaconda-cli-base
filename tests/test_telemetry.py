@@ -56,7 +56,7 @@ class TestInit:
 
         results = []
 
-        def call_init():
+        def call_init() -> None:
             _ensure_initialized()
             results.append(mod._initialized)
 
