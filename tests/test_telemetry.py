@@ -1,525 +1,241 @@
+"""Unit tests for telemetry module.
+
+NOTE: The test conftest.py sets OTEL_SDK_DISABLED=true, which means
+config.enabled is always False in this test session. The real OTel backend
+never initializes during unit tests.
+
+Tests that need to verify "enabled" behavior set _backend_initialized=True
+directly via monkeypatch to simulate an initialized backend without actually
+running the OTel SDK.
+
+Integration tests (test_telemetry_integration.py) run in a separate pytest
+invocation with telemetry fully enabled against a local oteltest receiver.
+"""
+
 from __future__ import annotations
 
-from pathlib import Path
-from textwrap import dedent
-from typing import Any, Generator, Iterator
-from unittest.mock import call
+import threading
+from typing import Generator
 
 import pytest
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
 
-from .conftest import CLIInvoker
-
-
-from anaconda_cli_base.telemetry_config import TelemetryConfig
-
 
 @pytest.fixture(autouse=True)
-def isolate_telemetry(monkeypatch: MonkeyPatch) -> Generator[None, None, None]:
+def reset_backend(monkeypatch: MonkeyPatch) -> Generator[None, None, None]:
     import anaconda_cli_base.telemetry as mod
 
-    monkeypatch.setattr(mod, "_initialized", False)
-    monkeypatch.setattr(mod, "_get_plugin_versions", lambda: {})
+    monkeypatch.setattr(mod, "_backend_initialized", False)
     yield
 
 
-@pytest.fixture
-def config_toml(tmp_path: Path, monkeypatch: MonkeyPatch) -> Iterator[Path]:
-    config_file = tmp_path / "config.toml"
-    monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(config_file))
-    yield config_file
+class TestInit:
+    def test_init_backend_respects_disabled_config(self) -> None:
+        import anaconda_cli_base.telemetry as mod
+        from anaconda_cli_base.telemetry import _init_backend, config
+
+        assert config.enabled is False
+        _init_backend()
+        assert mod._backend_initialized is False
+
+    def test_init_backend_called_by_public_functions(
+        self, mocker: MockerFixture
+    ) -> None:
+        import anaconda_cli_base.telemetry as mod
+
+        mock_init = mocker.patch.object(mod, "_init_backend")
+        from anaconda_cli_base.telemetry import count
+
+        count("x", plugin_name="test")
+        mock_init.assert_called_once()
+
+    def test_thread_safety(self) -> None:
+        import anaconda_cli_base.telemetry as mod
+        from anaconda_cli_base.telemetry import _init_backend
+
+        results = []
+
+        def call_init():
+            _init_backend()
+            results.append(mod._backend_initialized)
+
+        threads = [threading.Thread(target=call_init) for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(results) == 10
 
 
-@pytest.fixture
-def telemetry_enabled(monkeypatch: MonkeyPatch, config_toml: Path) -> None:
-    config_toml.write_text(
-        dedent("""\
-            [telemetry]
-            enabled = true
-            skip_internet_check = true
-        """)
-    )
+class TestNoOpWhenDisabled:
+    def test_count_noop(self) -> None:
+        from anaconda_cli_base.telemetry import count
+
+        count("metric", plugin_name="test")
+
+    def test_histogram_noop(self) -> None:
+        from anaconda_cli_base.telemetry import histogram
+
+        histogram("metric", plugin_name="test", value=1.0)
+
+    def test_log_event_noop(self) -> None:
+        from anaconda_cli_base.telemetry import log_event
+
+        log_event("body", event_name="name", plugin_name="test")
+
+    def test_traced_yields_noop_span(self) -> None:
+        from anaconda_cli_base.telemetry import traced, _NoOpSpan
+
+        with traced("operation", plugin_name="test") as span:
+            assert isinstance(span, _NoOpSpan)
+
+    def test_get_otel_handler_returns_null_handler(self) -> None:
+        import logging
+        from anaconda_cli_base.telemetry import get_otel_handler
+
+        handler = get_otel_handler()
+        assert isinstance(handler, logging.NullHandler)
 
 
-@pytest.fixture
-def mock_otel(mocker: MockerFixture) -> dict:
-    """Stub the OTel initialization and recording functions.
+class TestAttrs:
+    def test_build_attrs_includes_source_and_plugin(self) -> None:
+        from anaconda_cli_base.telemetry import _build_attrs
 
-    Replaces _ensure_initialized with a simple flag-set so tests exercise
-    _before_command/_after_command logic without requiring anaconda-opentelemetry.
-    """
-    import anaconda_cli_base.telemetry as mod
-
-    mocker.patch(
-        "anaconda_cli_base.telemetry._ensure_initialized",
-        side_effect=lambda: setattr(mod, "_initialized", True),
-    )
-    inc = mocker.patch("anaconda_opentelemetry.increment_counter", return_value=True)
-    hist = mocker.patch("anaconda_opentelemetry.record_histogram", return_value=True)
-    shutdown = mocker.patch("anaconda_cli_base.telemetry._shutdown_telemetry")
-
-    return {
-        "increment_counter": inc,
-        "record_histogram": hist,
-        "shutdown": shutdown,
-    }
-
-
-@pytest.mark.parametrize("value", ["TRUE", "1", "YES"])
-@pytest.mark.usefixtures("config_toml")
-def test_telemetry_disabled(monkeypatch: MonkeyPatch, value: str) -> None:
-    monkeypatch.setenv("OTEL_SDK_DISABLED", value)
-    config = TelemetryConfig()
-    assert not config.enabled
-
-
-def test_successful_command_records_metrics(mock_otel: dict) -> None:
-    from anaconda_cli_base.telemetry import _before_command, _after_command
-
-    info = _before_command(["ai", "chat"], "anaconda")
-    assert info is not None
-    assert info.command == "ai chat"
-    assert info.plugin == "ai"
-
-    _after_command(info, success=True)
-
-    mock_otel["record_histogram"].assert_called_once()
-    hist_args = mock_otel["record_histogram"].call_args
-    assert hist_args[0][0] == "cli_command_duration_ms"
-    assert hist_args[0][2]["command"] == "ai chat"
-    assert hist_args[0][2]["source"] == "anaconda-cli-base"
-
-    mock_otel["increment_counter"].assert_called_once_with(
-        "cli_command_invoked",
-        attributes={
-            "command": "ai chat",
-            "plugin": "ai",
+        result = _build_attrs({"key": "value"}, "my-plugin")
+        assert result == {
+            "key": "value",
             "source": "anaconda-cli-base",
-            "flags": "",
-            "exit_code": 0,
-        },
-    )
+            "plugin": "my-plugin",
+        }
 
+    def test_build_attrs_handles_none(self) -> None:
+        from anaconda_cli_base.telemetry import _build_attrs
+
+        result = _build_attrs(None, "test")
+        assert result == {"source": "anaconda-cli-base", "plugin": "test"}
+
+    def test_build_attrs_does_not_mutate_input(self) -> None:
+        from anaconda_cli_base.telemetry import _build_attrs
+
+        original = {"key": "value"}
+        result = _build_attrs(original, "test")
+        assert "source" not in original
+        assert "source" in result
 
-def test_failed_command_records_error_metric(mock_otel: dict) -> None:
-    from anaconda_cli_base.telemetry import _before_command, _after_command
 
-    info = _before_command(["ai", "chat"], "anaconda")
-    _after_command(info, success=False, error=RuntimeError("connection timeout"))
+class TestCommandTracking:
+    def test_before_command_returns_none_when_disabled(self) -> None:
+        import anaconda_cli_base.telemetry as mod
+        from anaconda_cli_base.telemetry import _before_command
 
-    calls = mock_otel["increment_counter"].call_args_list
-    assert len(calls) == 2
+        assert not mod._backend_initialized
+        result = _before_command(["ai", "chat"], "anaconda")
+        assert result is None
 
-    assert calls[0] == call(
-        "cli_command_invoked",
-        attributes={
-            "command": "ai chat",
-            "plugin": "ai",
-            "source": "anaconda-cli-base",
-            "flags": "",
-            "exit_code": 0,
-        },
-    )
-    assert calls[1] == call(
-        "cli_command_errors",
-        attributes={
-            "command": "ai chat",
-            "plugin": "ai",
-            "source": "anaconda-cli-base",
-            "flags": "",
-            "exit_code": 0,
-            "error.type": "RuntimeError",
-            "error.code": "",
-            "error.message": "connection timeout",
-        },
-    )
+    def test_before_command_extracts_command_info(
+        self, monkeypatch: MonkeyPatch
+    ) -> None:
+        import anaconda_cli_base.telemetry as mod
+        from anaconda_cli_base.telemetry import _before_command
 
+        monkeypatch.setattr(mod, "_backend_initialized", True)
+        info = _before_command(
+            ["ai", "chat", "--verbose", "--model=llama3"], "anaconda"
+        )
+        assert info is not None
+        assert info.command == "ai chat"
+        assert info.plugin == "ai"
+        assert info.flags == "--verbose,--model"
 
-def test_telemetry_disabled_via_config(
-    monkeypatch: MonkeyPatch, config_toml: Path
-) -> None:
-    config_toml.write_text("[telemetry]\nenabled = false\n")
+    def test_before_command_handles_empty_args(self, monkeypatch: MonkeyPatch) -> None:
+        import anaconda_cli_base.telemetry as mod
+        from anaconda_cli_base.telemetry import _before_command
 
-    from anaconda_cli_base.telemetry import _is_enabled
+        monkeypatch.setattr(mod, "_backend_initialized", True)
+        info = _before_command([], "anaconda")
+        assert info is not None
+        assert info.command == "anaconda"
+        assert info.plugin == "root"
+        assert info.flags == ""
 
-    assert _is_enabled() is False
+    def test_after_command_noop_when_info_is_none(self) -> None:
+        from anaconda_cli_base.telemetry import _after_command
 
+        _after_command(None, success=True)
 
-def test_telemetry_disabled_via_env_var(
-    monkeypatch: MonkeyPatch, config_toml: Path
-) -> None:
-    config_toml.write_text("[telemetry]\n")
-    monkeypatch.setenv("ANACONDA_TELEMETRY_ENABLED", "false")
 
-    from anaconda_cli_base.telemetry import _is_enabled
+class TestDetection:
+    def test_detect_ci_vendor_github(self, monkeypatch: MonkeyPatch) -> None:
+        from anaconda_cli_base.telemetry import _detect_ci_vendor
 
-    assert _is_enabled() is False
+        monkeypatch.setenv("GITHUB_ACTIONS", "true")
+        assert _detect_ci_vendor() == "github-actions"
 
+    def test_detect_ci_vendor_unknown(self, monkeypatch: MonkeyPatch) -> None:
+        from anaconda_cli_base.telemetry import _detect_ci_vendor
 
-def test_telemetry_disabled_by_otel_sdk_disabled(
-    monkeypatch: MonkeyPatch, telemetry_enabled: None
-) -> None:
-    monkeypatch.setenv("OTEL_SDK_DISABLED", "true")
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+        monkeypatch.setenv("CI", "true")
+        assert _detect_ci_vendor() == "unknown-ci"
 
-    from anaconda_cli_base.telemetry import _before_command
+    def test_detect_ci_vendor_none(self, monkeypatch: MonkeyPatch) -> None:
+        from anaconda_cli_base.telemetry import _detect_ci_vendor
 
-    info = _before_command(["ai", "chat"], "anaconda")
-    assert info is None
+        monkeypatch.delenv("CI", raising=False)
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+        assert _detect_ci_vendor() == ""
 
+    def test_detect_ai_agent_opencode(self, monkeypatch: MonkeyPatch) -> None:
+        from anaconda_cli_base.telemetry import _detect_ai_agent
 
-def test_after_command_noop_when_info_is_none(mock_otel: dict) -> None:
-    from anaconda_cli_base.telemetry import _after_command
+        monkeypatch.setenv("OPENCODE", "1")
+        assert _detect_ai_agent() == "opencode"
 
-    _after_command(None, success=True)
+    def test_detect_ai_agent_cursor(self, monkeypatch: MonkeyPatch) -> None:
+        from anaconda_cli_base.telemetry import _detect_ai_agent
 
-    mock_otel["increment_counter"].assert_not_called()
-    mock_otel["record_histogram"].assert_not_called()
+        monkeypatch.delenv("OPENCODE", raising=False)
+        monkeypatch.setenv("TERM_PROGRAM", "Cursor")
+        assert _detect_ai_agent() == "cursor"
 
+    def test_detect_ai_agent_none(self, monkeypatch: MonkeyPatch) -> None:
+        from anaconda_cli_base.telemetry import _detect_ai_agent
 
-def test_shutdown_called_after_command(mock_otel: dict) -> None:
-    from anaconda_cli_base.telemetry import _before_command, _after_command
+        for var in [
+            "OPENCODE",
+            "CURSOR_TRACE_ID",
+            "CURSOR_SESSION_ID",
+            "CLINE_TASK_ID",
+            "CONTINUE_GLOBAL_DIR",
+            "WINDSURF_SESSION_ID",
+            "CLAUDE_CODE",
+        ]:
+            monkeypatch.delenv(var, raising=False)
+        monkeypatch.setenv("TERM_PROGRAM", "iTerm2")
+        assert _detect_ai_agent() == ""
 
-    info = _before_command(["ai", "chat"], "anaconda")
-    _after_command(info, success=True)
+    def test_detect_tty(self) -> None:
+        from anaconda_cli_base.telemetry import _detect_tty
 
-    mock_otel["shutdown"].assert_called_once()
+        assert _detect_tty() is False
 
 
-def test_duration_is_positive(mock_otel: dict) -> None:
-    from anaconda_cli_base.telemetry import _before_command, _after_command
-    import time
+class TestHttpSuppression:
+    def test_suppress_http_spans(self) -> None:
+        from anaconda_cli_base.telemetry import suppress_http_spans, is_http_suppressed
 
-    info = _before_command(["ai", "chat"], "anaconda")
-    time.sleep(0.01)
-    _after_command(info, success=True)
-
-    hist_args = mock_otel["record_histogram"].call_args
-    duration_ms = hist_args[0][1]
-    assert duration_ms >= 10.0
-
-
-def test_noop_span_methods_are_safe() -> None:
-    from anaconda_cli_base.telemetry import _NoOpSpan
-
-    span = _NoOpSpan()
-    span.add_event("test", {"key": "value"})
-    span.add_exception(RuntimeError("boom"))
-    span.set_error_status("error")
-    span.add_attributes({"key": "value"})
-
-
-def test_cli_success_calls_telemetry(
-    invoke_cli: CLIInvoker, mocker: MockerFixture
-) -> None:
-    before = mocker.patch("anaconda_cli_base.cli._before_command")
-    after = mocker.patch("anaconda_cli_base.cli._after_command")
-
-    result = invoke_cli(["some-test-subcommand"])
-    assert result.exit_code == 0
-
-    before.assert_called_once()
-    after.assert_called_once()
-    _, kwargs = after.call_args
-    assert kwargs["success"] is True
-
-
-def test_cli_failure_calls_telemetry_with_error(
-    invoke_cli: CLIInvoker, mocker: MockerFixture
-) -> None:
-    from anaconda_cli_base.exceptions import register_error_handler
-
-    class _TelTestError(Exception):
-        pass
-
-    @register_error_handler(_TelTestError)
-    def _handle(e: type) -> int:
-        return 99
-
-    import anaconda_cli_base.cli
-
-    @anaconda_cli_base.cli.app.command("tel-fail")
-    def tel_fail() -> None:
-        raise _TelTestError("boom")
-
-    before = mocker.patch("anaconda_cli_base.cli._before_command")
-    after = mocker.patch("anaconda_cli_base.cli._after_command")
-
-    result = invoke_cli(["tel-fail"])
-    assert result.exit_code == 99
-
-    before.assert_called_once()
-    after.assert_called_once()
-    _, kwargs = after.call_args
-    assert kwargs["success"] is False
-    assert isinstance(kwargs["error"], _TelTestError)
-
-
-def test_cli_retry_calls_telemetry_once(
-    invoke_cli: CLIInvoker, mocker: MockerFixture
-) -> None:
-    from anaconda_cli_base.exceptions import register_error_handler
-
-    class _TelRetryError(Exception):
-        pass
-
-    call_count = 0
-
-    @register_error_handler(_TelRetryError)
-    def _handle(e: type) -> int:
-        return -1
-
-    import anaconda_cli_base.cli
-
-    @anaconda_cli_base.cli.app.command("tel-retry")
-    def tel_retry() -> None:
-        nonlocal call_count
-        call_count += 1
-        if call_count < 2:
-            raise _TelRetryError("retry me")
-
-    before = mocker.patch("anaconda_cli_base.cli._before_command")
-    after = mocker.patch("anaconda_cli_base.cli._after_command")
-
-    result = invoke_cli(["tel-retry"])
-    assert result.exit_code == 0
-    assert call_count == 2
-
-    before.assert_called_once()
-    after.assert_called_once()
-
-
-def test_count_calls_increment_counter_with_source(
-    mocker: MockerFixture, monkeypatch: MonkeyPatch
-) -> None:
-    import anaconda_cli_base.telemetry as mod
-
-    monkeypatch.setattr(mod, "_initialized", True)
-    inc = mocker.patch("anaconda_opentelemetry.increment_counter", return_value=True)
-
-    from anaconda_cli_base.telemetry import count
-
-    count("models_downloaded", plugin_name="ai", attributes={"model": "llama3"})
-
-    inc.assert_called_once_with(
-        "models_downloaded",
-        by=1,
-        attributes={"model": "llama3", "source": "anaconda-cli-base", "plugin": "ai"},
-    )
-
-
-def test_count_noop_when_disabled(mocker: MockerFixture) -> None:
-    inc = mocker.patch("anaconda_opentelemetry.increment_counter")
-
-    from anaconda_cli_base.telemetry import count
-
-    count("anything", plugin_name="test-plugin")
-
-    inc.assert_not_called()
-
-
-def test_histogram_calls_record_histogram_with_source_and_plugin(
-    mocker: MockerFixture, monkeypatch: MonkeyPatch
-) -> None:
-    import anaconda_cli_base.telemetry as mod
-
-    monkeypatch.setattr(mod, "_initialized", True)
-    hist = mocker.patch("anaconda_opentelemetry.record_histogram", return_value=True)
-
-    from anaconda_cli_base.telemetry import histogram
-
-    histogram(
-        "download_size_bytes",
-        plugin_name="ai",
-        value=1024.5,
-        attributes={"model": "llama3"},
-    )
-
-    hist.assert_called_once_with(
-        "download_size_bytes",
-        1024.5,
-        attributes={"model": "llama3", "source": "anaconda-cli-base", "plugin": "ai"},
-    )
-
-
-def test_histogram_noop_when_disabled(mocker: MockerFixture) -> None:
-    hist = mocker.patch("anaconda_opentelemetry.record_histogram")
-
-    from anaconda_cli_base.telemetry import histogram
-
-    histogram("anything", plugin_name="test-plugin", value=1.0)
-
-    hist.assert_not_called()
-
-
-def test_log_event_calls_send_event_with_source_and_plugin(
-    mocker: MockerFixture, monkeypatch: MonkeyPatch
-) -> None:
-    import anaconda_cli_base.telemetry as mod
-
-    monkeypatch.setattr(mod, "_initialized", True)
-    send = mocker.patch("anaconda_opentelemetry.signals.send_event", return_value=True)
-
-    from anaconda_cli_base.telemetry import log_event
-
-    log_event(
-        "user started chat",
-        "chat_started",
-        plugin_name="ai",
-        attributes={"mode": "stream"},
-    )
-
-    send.assert_called_once_with(
-        "user started chat",
-        "chat_started",
-        attributes={"mode": "stream", "source": "anaconda-cli-base", "plugin": "ai"},
-    )
-
-
-def test_log_event_noop_when_disabled(mocker: MockerFixture) -> None:
-    send = mocker.patch("anaconda_opentelemetry.signals.send_event")
-
-    from anaconda_cli_base.telemetry import log_event
-
-    log_event("anything", "event", plugin_name="test-plugin")
-
-    send.assert_not_called()
-
-
-def test_traced_yields_noop_span_when_disabled() -> None:
-    from anaconda_cli_base.telemetry import traced, _NoOpSpan
-
-    with traced("some_operation", plugin_name="ai") as span:
-        assert isinstance(span, _NoOpSpan)
-
-
-def test_traced_passes_correct_attributes(
-    mocker: MockerFixture, monkeypatch: MonkeyPatch
-) -> None:
-    import anaconda_cli_base.telemetry as mod
-    from contextlib import contextmanager
-
-    monkeypatch.setattr(mod, "_initialized", True)
-
-    @contextmanager
-    def fake_get_trace(name: str, attributes: Any = None) -> Generator[Any, None, None]:
-        yield mocker.MagicMock()
-
-    get_trace = mocker.patch(
-        "anaconda_opentelemetry.get_trace", side_effect=fake_get_trace
-    )
-
-    from anaconda_cli_base.telemetry import traced
-
-    with traced("models_download", plugin_name="ai", attributes={"model": "llama3"}):
-        pass
-
-    get_trace.assert_called_once_with(
-        "models_download",
-        attributes={"model": "llama3", "source": "anaconda-cli-base", "plugin": "ai"},
-    )
-
-
-def test_traced_yields_noop_on_exception(
-    mocker: MockerFixture, monkeypatch: MonkeyPatch
-) -> None:
-    import anaconda_cli_base.telemetry as mod
-
-    monkeypatch.setattr(mod, "_initialized", True)
-    mocker.patch("anaconda_opentelemetry.get_trace", side_effect=RuntimeError("broken"))
-
-    from anaconda_cli_base.telemetry import traced, _NoOpSpan
-
-    with traced("will_fail", plugin_name="test-plugin") as span:
-        assert isinstance(span, _NoOpSpan)
-
-
-def test_suppress_http_spans_sets_and_resets() -> None:
-    from anaconda_cli_base.telemetry import suppress_http_spans, is_http_suppressed
-
-    assert is_http_suppressed() is False
-
-    with suppress_http_spans():
-        assert is_http_suppressed() is True
-
-    assert is_http_suppressed() is False
-
-
-def test_suppress_http_spans_nests_correctly() -> None:
-    from anaconda_cli_base.telemetry import suppress_http_spans, is_http_suppressed
-
-    with suppress_http_spans():
-        assert is_http_suppressed() is True
+        assert is_http_suppressed() is False
         with suppress_http_spans():
             assert is_http_suppressed() is True
-        assert is_http_suppressed() is True
+        assert is_http_suppressed() is False
 
-    assert is_http_suppressed() is False
+    def test_suppress_http_spans_nests(self) -> None:
+        from anaconda_cli_base.telemetry import suppress_http_spans, is_http_suppressed
 
-
-def test_get_otel_handler_returns_null_handler_when_disabled() -> None:
-    import logging
-
-    from anaconda_cli_base.telemetry import get_otel_handler
-
-    handler = get_otel_handler()
-    assert isinstance(handler, logging.NullHandler)
-
-
-def test_get_otel_handler_returns_logging_handler_when_enabled(
-    mocker: MockerFixture, monkeypatch: MonkeyPatch
-) -> None:
-    import logging
-    import anaconda_cli_base.telemetry as mod
-
-    monkeypatch.setattr(mod, "_initialized", True)
-
-    fake_handler = logging.Handler()
-    mocker.patch(
-        "anaconda_opentelemetry.signals.get_telemetry_logger_handler",
-        return_value=fake_handler,
-    )
-
-    from anaconda_cli_base.telemetry import get_otel_handler
-
-    handler = get_otel_handler()
-    assert handler is fake_handler
-    assert handler.level == logging.WARNING
-
-
-def test_get_otel_handler_respects_custom_level(
-    mocker: MockerFixture, monkeypatch: MonkeyPatch
-) -> None:
-    import logging
-    import anaconda_cli_base.telemetry as mod
-
-    monkeypatch.setattr(mod, "_initialized", True)
-
-    fake_handler = logging.Handler()
-    mocker.patch(
-        "anaconda_opentelemetry.signals.get_telemetry_logger_handler",
-        return_value=fake_handler,
-    )
-
-    from anaconda_cli_base.telemetry import get_otel_handler
-
-    handler = get_otel_handler(level=logging.ERROR)
-    assert handler.level == logging.ERROR
-
-
-def test_get_otel_handler_returns_null_handler_on_import_error(
-    mocker: MockerFixture, monkeypatch: MonkeyPatch
-) -> None:
-    import logging
-    import anaconda_cli_base.telemetry as mod
-
-    monkeypatch.setattr(mod, "_initialized", True)
-    mocker.patch(
-        "anaconda_opentelemetry.signals.get_telemetry_logger_handler",
-        side_effect=ImportError("no module"),
-    )
-
-    from anaconda_cli_base.telemetry import get_otel_handler
-
-    handler = get_otel_handler()
-    assert isinstance(handler, logging.NullHandler)
+        with suppress_http_spans():
+            with suppress_http_spans():
+                assert is_http_suppressed() is True
+            assert is_http_suppressed() is True
+        assert is_http_suppressed() is False

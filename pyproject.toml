@@ -109,7 +109,7 @@ target-version = "py38"
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py310,py311,py312,py313,py314,mypy
+envlist = py310,py311,py312,py313,py314,py310-otel,py310-integration,mypy
 isolated_build = True
 requires =
     tox-conda
@@ -117,7 +117,7 @@ requires =
 
 [gh-actions]
 python =
-    3.10: py310, mypy
+    3.10: py310, py310-otel, py310-integration, mypy
     3.11: py311, mypy
     3.12: py312, mypy
     3.13: py313, mypy
@@ -133,12 +133,32 @@ deps =
 conda_deps =
     pip
     anaconda-auth >=0.11
-    anaconda-opentelemetry >=1.1.0
 conda_channels =
     anaconda-cloud
     defaults
     conda-forge
 commands = pytest -m "not integration"
+
+[testenv:py310-otel]
+deps =
+    {[testenv]deps}
+conda_deps =
+    {[testenv]conda_deps}
+    anaconda-opentelemetry >=1.1.0
+conda_channels =
+    {[testenv]conda_channels}
+commands = pytest -m "not integration"
+
+[testenv:py310-integration]
+deps =
+    {[testenv]deps}
+    oteltest
+conda_deps =
+    {[testenv]conda_deps}
+    anaconda-opentelemetry >=1.1.0
+conda_channels =
+    {[testenv]conda_channels}
+commands = pytest -m integration
 
 [testenv:mypy]
 deps =

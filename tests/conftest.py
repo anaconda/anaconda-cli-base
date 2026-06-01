@@ -27,6 +27,7 @@ from click.testing import Result
 # Force usage of new CLI
 os.environ["ANACONDA_CLI_FORCE_NEW"] = "true"
 os.environ["ANACONDA_CLI_DISABLE_PLUGINS"] = "true"
+os.environ["OTEL_SDK_DISABLED"] = "true"
 
 import anaconda_cli_base.cli
 
@@ -60,11 +61,6 @@ def disable_dot_env(mocker: MockerFixture) -> None:
 @pytest.fixture(autouse=True)
 def disable_config_toml(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setenv("ANACONDA_CONFIG_TOML", str(tmp_path / "empty-config.toml"))
-
-
-@pytest.fixture(autouse=True)
-def disable_telemetry(monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.setenv("OTEL_SDK_DISABLED", "true")
 
 
 @pytest.fixture()

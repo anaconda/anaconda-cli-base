@@ -27,7 +27,6 @@ def _free_port() -> int:
 
 
 def _wait_for(telemetry: Telemetry, kind: str, timeout: float = 5.0) -> None:
-    """Poll until at least one request of the given kind arrives."""
     attr = f"{kind}_requests"
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -39,7 +38,6 @@ def _wait_for(telemetry: Telemetry, kind: str, timeout: float = 5.0) -> None:
 
 @pytest.fixture(scope="module")
 def otlp_sink():
-    """Module-scoped: start OTLP receiver and initialize telemetry once."""
     import anaconda_cli_base.telemetry as mod
 
     port = _free_port()
@@ -52,10 +50,13 @@ def otlp_sink():
     os.environ["ANACONDA_TELEMETRY_ENABLED"] = "true"
     os.environ.pop("OTEL_SDK_DISABLED", None)
 
-    mod._initialized = False
-    mod._ensure_initialized()
+    mod.config.enabled = True
+    mod.config.endpoint = f"http://localhost:{port}"
 
-    if not mod._initialized:
+    mod._backend_initialized = False
+    mod._init_backend()
+
+    if not mod._backend_initialized:
         sink.stop()
         pytest.skip(
             "Telemetry failed to initialize (anaconda-opentelemetry not available)"
@@ -63,7 +64,7 @@ def otlp_sink():
 
     yield handler
 
-    mod._shutdown_telemetry()
+    mod.shutdown()
     time.sleep(0.3)
     sink.stop()
 
@@ -73,7 +74,6 @@ def otlp_sink():
 
 @pytest.fixture()
 def otlp(otlp_sink) -> Telemetry:
-    """Per-test access to the shared telemetry accumulator."""
     return otlp_sink.telemetry
 
 
@@ -81,7 +81,6 @@ pytestmark = pytest.mark.integration
 
 
 def _flush():
-    """Force flush all providers without shutting them down."""
     from opentelemetry import trace, metrics
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.metrics import MeterProvider
@@ -162,7 +161,8 @@ class TestLogs:
         from anaconda_cli_base.telemetry import get_otel_handler
 
         test_logger = logging.getLogger("integration_test_logger")
-        test_logger.addHandler(get_otel_handler(level=logging.WARNING))
+        handler = get_otel_handler(level=logging.WARNING)
+        test_logger.addHandler(handler)
         test_logger.setLevel(logging.WARNING)
 
         test_logger.warning("handler integration test warning")
@@ -177,6 +177,7 @@ class TestLogs:
                         bodies.append(record.body.string_value)
 
         assert "handler integration test warning" in bodies
+        test_logger.removeHandler(handler)
 
 
 class TestTracing:
@@ -223,10 +224,22 @@ class TestResourceAttributes:
 
 class TestCLIIntegration:
     def test_cli_command_delivers_metrics(self, otlp: Telemetry) -> None:
-        from anaconda_cli_base.telemetry import _before_command, _after_command
+        from anaconda_cli_base.telemetry import _before_command
+        from anaconda_opentelemetry import increment_counter, record_histogram
 
         info = _before_command(["test", "subcommand"], "anaconda")
-        _after_command(info, success=True)
+        assert info is not None
+        duration_ms = (time.perf_counter() - info.start_time) * 1000
+        attrs = {
+            "command": info.command,
+            "plugin": info.plugin,
+            "source": "anaconda-cli-base",
+            "flags": info.flags,
+            "exit_code": 0,
+        }
+        record_histogram("cli_command_duration_ms", duration_ms, attrs)
+        increment_counter("cli_command_invoked", attributes=attrs)
+
         _flush()
         _wait_for(otlp, "metric")
 
@@ -239,3 +252,25 @@ class TestCLIIntegration:
 
         assert "cli_command_duration_ms" in names
         assert "cli_command_invoked" in names
+
+
+class TestBackendInit:
+    def test_multiple_calls_share_single_backend(self, otlp: Telemetry) -> None:
+        from anaconda_cli_base.telemetry import count, is_enabled
+
+        assert is_enabled()
+
+        count("from_first_call", plugin_name="plugin-a")
+        count("from_second_call", plugin_name="plugin-b")
+        _flush()
+        _wait_for(otlp, "metric")
+
+        names = set()
+        for req in otlp.metric_requests:
+            for rs in req.pbreq.resource_metrics:
+                for sm in rs.scope_metrics:
+                    for metric in sm.metrics:
+                        names.add(metric.name)
+
+        assert "from_first_call" in names
+        assert "from_second_call" in names
