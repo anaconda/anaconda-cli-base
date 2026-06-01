@@ -1,18 +1,8 @@
 """Centralized telemetry for the Anaconda CLI framework.
 
-Plugin authors use module-level functions with plugin_name:
-
-    from anaconda_cli_base.telemetry import count, histogram, traced, log_event
-
-    count("models_downloaded", plugin_name="ai")
-    histogram("download_size_bytes", plugin_name="ai", value=result.size)
-    log_event("download complete", event_name="model_downloaded", plugin_name="ai")
-
-    with traced("models_download", plugin_name="ai") as span:
-        ...
-
-All functions are no-ops when telemetry is disabled or anaconda-opentelemetry
-is not installed.
+All functions are safe to call regardless of whether telemetry is configured.
+When telemetry is disabled, every function is a no-op. Imports of the OTel SDK
+are deferred until the backend initializes.
 """
 
 import logging
@@ -40,13 +30,9 @@ AttributeValue = Union[str, bool, int, float, Sequence[Union[str, bool, int, flo
 config = TelemetryConfig()
 
 _lock = threading.Lock()
-_backend_initialized = False
+_initialized = False
+
 _suppress_http: ContextVar[bool] = ContextVar("_suppress_http", default=False)
-
-
-# ---------------------------------------------------------------------------
-# Environment detection helpers
-# ---------------------------------------------------------------------------
 
 
 @lru_cache(maxsize=1)
@@ -82,6 +68,20 @@ def _detect_ci_vendor() -> str:
     return ""
 
 
+def _is_first_run() -> bool:
+    from pathlib import Path
+
+    marker = Path.home() / ".anaconda" / ".telemetry_initialized"
+    if marker.exists():
+        return False
+    try:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.touch()
+    except OSError:
+        pass
+    return True
+
+
 def _detect_ai_agent() -> str:
     indicators = {
         "CURSOR_TRACE_ID": "cursor",
@@ -106,53 +106,31 @@ def _detect_tty() -> bool:
     return sys.stdout.isatty()
 
 
-def _is_first_run() -> bool:
-    from pathlib import Path
-
-    marker = Path.home() / ".anaconda" / ".telemetry_initialized"
-    if marker.exists():
-        return False
-    try:
-        marker.parent.mkdir(parents=True, exist_ok=True)
-        marker.touch()
-    except OSError:
-        pass
-    return True
+@dataclass
+class _CommandInfo:
+    command: str
+    plugin: str
+    flags: str
+    start_time: float = field(default_factory=time.perf_counter)
 
 
-def _get_api_key() -> Optional[str]:
-    try:
-        from anaconda_auth.token import TokenInfo
-
-        token_info = TokenInfo.load("anaconda.com")
-        return token_info.api_key
-    except Exception:
-        return None
-
-
-# ---------------------------------------------------------------------------
-# Backend lifecycle
-# ---------------------------------------------------------------------------
-
-
-def _init_backend() -> None:
-    global _backend_initialized
-    if _backend_initialized:
+def _ensure_initialized() -> None:
+    global _initialized
+    if _initialized:
         return
     with _lock:
-        if _backend_initialized:
+        if _initialized:
             return
         if not config.enabled:
             return
         try:
             os.environ.setdefault("GRPC_VERBOSITY", "NONE")
 
-            import re
-            import platform as platform_mod
-
             from anaconda_opentelemetry.config import Configuration
             from anaconda_opentelemetry.attributes import ResourceAttributes
             from anaconda_opentelemetry.signals import initialize_telemetry
+
+            import re
 
             from anaconda_cli_base import __version__
 
@@ -174,6 +152,8 @@ def _init_backend() -> None:
 
             otel_config.set_metrics_export_interval_ms(1000)
             otel_config.set_tracing_export_interval_ms(1000)
+
+            import platform as platform_mod
 
             service_version = re.sub(r"[^a-zA-Z0-9._-]", ".", __version__)[:30]
 
@@ -197,178 +177,29 @@ def _init_backend() -> None:
                 attributes=attrs,
                 signal_types=["logging", "metrics", "tracing"],
             )
-            _backend_initialized = True
+            _initialized = True
         except ImportError:
             pass
         except Exception as exc:
             logger.debug("Telemetry initialization failed: %s", exc)
 
 
-def shutdown() -> None:
-    if not _backend_initialized:
-        return
+def _get_api_key() -> Optional[str]:
     try:
-        import atexit
+        from anaconda_auth.token import TokenInfo
 
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.metrics import MeterProvider
-        from opentelemetry.sdk._logs import LoggerProvider
-        from opentelemetry import trace, metrics
-
-        from anaconda_opentelemetry.logging import _AnacondaLogger
-
-        flush_timeout = config.flush_timeout_ms
-
-        trace_provider = trace.get_tracer_provider()
-        if isinstance(trace_provider, TracerProvider):
-            trace_provider.force_flush(timeout_millis=flush_timeout)
-            if trace_provider._atexit_handler is not None:
-                atexit.unregister(trace_provider._atexit_handler)
-                trace_provider._atexit_handler = None
-
-        meter_provider = metrics.get_meter_provider()
-        if isinstance(meter_provider, MeterProvider):
-            meter_provider.force_flush(timeout_millis=flush_timeout)
-            if meter_provider._atexit_handler is not None:
-                atexit.unregister(meter_provider._atexit_handler)
-                meter_provider._atexit_handler = None
-
-        if _AnacondaLogger._instance is not None:
-            logger_provider = _AnacondaLogger._instance._provider
-            if isinstance(logger_provider, LoggerProvider):
-                logger_provider.force_flush(timeout_millis=flush_timeout)
-                if logger_provider._at_exit_handler is not None:
-                    atexit.unregister(logger_provider._at_exit_handler)
-                    logger_provider._at_exit_handler = None
+        token_info = TokenInfo.load("anaconda.com")
+        return token_info.api_key
     except Exception:
-        pass
-
-
-def is_enabled() -> bool:
-    return _backend_initialized
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-
-@contextmanager
-def traced(
-    name: str, *, plugin_name: str, attributes: Optional[Dict[str, Any]] = None
-) -> Generator[Any, None, None]:
-    _init_backend()
-    if not _backend_initialized:
-        yield _NoOpSpan()
-        return
-    try:
-        from anaconda_opentelemetry import get_trace
-
-        with get_trace(name, attributes=_build_attrs(attributes, plugin_name)) as span:
-            yield span
-    except Exception:
-        yield _NoOpSpan()
-
-
-def count(
-    name: str,
-    *,
-    plugin_name: str,
-    value: int = 1,
-    attributes: Optional[Dict[str, Any]] = None,
-) -> None:
-    _init_backend()
-    if not _backend_initialized:
-        return
-    try:
-        from anaconda_opentelemetry import increment_counter
-
-        increment_counter(
-            name, by=value, attributes=_build_attrs(attributes, plugin_name)
-        )
-    except Exception:
-        pass
-
-
-def histogram(
-    name: str,
-    *,
-    plugin_name: str,
-    value: float,
-    attributes: Optional[Dict[str, Any]] = None,
-) -> None:
-    _init_backend()
-    if not _backend_initialized:
-        return
-    try:
-        from anaconda_opentelemetry import record_histogram
-
-        record_histogram(name, value, attributes=_build_attrs(attributes, plugin_name))
-    except Exception:
-        pass
-
-
-def log_event(
-    body: str,
-    *,
-    event_name: str,
-    plugin_name: str,
-    attributes: Optional[Dict[str, Any]] = None,
-) -> None:
-    _init_backend()
-    if not _backend_initialized:
-        return
-    try:
-        from anaconda_opentelemetry.signals import send_event
-
-        send_event(body, event_name, attributes=_build_attrs(attributes, plugin_name))
-    except Exception:
-        pass
-
-
-def get_otel_handler(level: int = logging.WARNING) -> logging.Handler:
-    _init_backend()
-    if not _backend_initialized:
-        return logging.NullHandler()
-    try:
-        from anaconda_opentelemetry.signals import get_telemetry_logger_handler
-
-        handler = get_telemetry_logger_handler()
-        if handler is None:
-            return logging.NullHandler()
-        handler.setLevel(level)
-        return handler
-    except Exception:
-        return logging.NullHandler()
-
-
-def _build_attrs(
-    attributes: Optional[Dict[str, Any]], plugin_name: str
-) -> Dict[str, Any]:
-    attrs = dict(attributes or {})
-    attrs["source"] = "anaconda-cli-base"
-    attrs["plugin"] = plugin_name
-    return attrs
-
-
-# ---------------------------------------------------------------------------
-# CLI framework internals
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class _CommandInfo:
-    command: str
-    plugin: str
-    flags: str
-    start_time: float = field(default_factory=time.perf_counter)
+        return None
 
 
 def _before_command(
     args: Optional[Sequence[str]], prog_name: Optional[str]
 ) -> Optional[_CommandInfo]:
-    _init_backend()
-    if not _backend_initialized:
+    """Start tracking a command. Returns None when telemetry is inactive."""
+    _ensure_initialized()
+    if not _initialized:
         return None
     command_name = " ".join(args[:2]) if args else prog_name or "unknown"
     plugin_name = args[0] if args else "root"
@@ -409,16 +240,186 @@ def _after_command(
     except Exception:
         pass
 
-    shutdown()
+    _shutdown_telemetry()
 
 
-# ---------------------------------------------------------------------------
-# HTTP span suppression
-# ---------------------------------------------------------------------------
+def _shutdown_telemetry() -> None:
+    """Flush all telemetry and disable atexit handlers to prevent exit hangs."""
+    if not _initialized:
+        return
+    try:
+        import atexit
+
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.metrics import MeterProvider
+        from opentelemetry.sdk._logs import LoggerProvider
+        from opentelemetry import trace, metrics
+
+        from anaconda_opentelemetry.logging import _AnacondaLogger
+
+        flush_timeout = config.flush_timeout_ms
+
+        trace_provider = trace.get_tracer_provider()
+        if isinstance(trace_provider, TracerProvider):
+            trace_provider.force_flush(timeout_millis=flush_timeout)
+            if trace_provider._atexit_handler is not None:
+                atexit.unregister(trace_provider._atexit_handler)
+                trace_provider._atexit_handler = None
+
+        meter_provider = metrics.get_meter_provider()
+        if isinstance(meter_provider, MeterProvider):
+            meter_provider.force_flush(timeout_millis=flush_timeout)
+            if meter_provider._atexit_handler is not None:
+                atexit.unregister(meter_provider._atexit_handler)
+                meter_provider._atexit_handler = None
+
+        if _AnacondaLogger._instance is not None:
+            logger_provider = _AnacondaLogger._instance._provider
+            if isinstance(logger_provider, LoggerProvider):
+                logger_provider.force_flush(timeout_millis=flush_timeout)
+                if logger_provider._at_exit_handler is not None:
+                    atexit.unregister(logger_provider._at_exit_handler)
+                    logger_provider._at_exit_handler = None
+    except Exception:
+        pass
+
+
+def is_telemetry_enabled() -> bool:
+    return _initialized
+
+
+def get_otel_handler(level: int = logging.WARNING) -> logging.Handler:
+    """Get a logging handler that exports log records to the OTel backend.
+
+    Attach to any named logger to forward records at *level* or above to the
+    telemetry collector. The handler is additive — existing handlers (stderr,
+    file) continue to work normally.
+
+    Returns a NullHandler when telemetry is inactive or unavailable, so it is
+    always safe to call unconditionally.
+    """
+    _ensure_initialized()
+    if not _initialized:
+        return logging.NullHandler()
+    try:
+        from anaconda_opentelemetry.signals import get_telemetry_logger_handler
+
+        handler = get_telemetry_logger_handler()
+        if handler is None:
+            return logging.NullHandler()
+        handler.setLevel(level)
+        return handler
+    except Exception:
+        return logging.NullHandler()
+
+
+@contextmanager
+def traced(
+    name: str, plugin_name: str, attributes: Optional[Dict[str, Any]] = None
+) -> Generator[Any, None, None]:
+    """Create a child span for tracing a block of work.
+
+    Use to measure duration and capture events within a logical operation.
+    The span appears in trace views as a child of the CLI command's root span,
+    giving visibility into where time is spent.
+    """
+    _ensure_initialized()
+    if not _initialized:
+        yield _NoOpSpan()
+        return
+    try:
+        from anaconda_opentelemetry import get_trace
+
+        with get_trace(name, attributes=_build_attrs(attributes, plugin_name)) as span:
+            yield span
+    except Exception:
+        yield _NoOpSpan()
+
+
+def count(
+    name: str,
+    plugin_name: str,
+    value: int = 1,
+    attributes: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Increment a counter metric. Use for discrete occurrences you want to sum.
+
+    Counters are aggregated server-side (summed over time windows) and are ideal
+    for alerting on rates (e.g., errors/minute). Use instead of log_event when
+    you need numeric aggregation rather than individual event records.
+    """
+    _ensure_initialized()
+    if not _initialized:
+        return
+    try:
+        from anaconda_opentelemetry import increment_counter
+
+        increment_counter(
+            name, by=value, attributes=_build_attrs(attributes, plugin_name)
+        )
+    except Exception:
+        pass
+
+
+def histogram(
+    name: str,
+    plugin_name: str,
+    value: float,
+    attributes: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Record a distribution measurement. Use for values you want percentiles of.
+
+    Histograms compute p50/p95/p99 server-side, making them ideal for latency
+    and size measurements. Use instead of log_event when you need statistical
+    summaries rather than individual event records.
+    """
+    _ensure_initialized()
+    if not _initialized:
+        return
+    try:
+        from anaconda_opentelemetry import record_histogram
+
+        record_histogram(name, value, attributes=_build_attrs(attributes, plugin_name))
+    except Exception:
+        pass
+
+
+def log_event(
+    body: str,
+    event_name: str,
+    plugin_name: str,
+    attributes: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Send a structured log event. No-ops when telemetry is disabled."""
+    _ensure_initialized()
+    if not _initialized:
+        return
+    try:
+        from anaconda_opentelemetry.signals import send_event
+
+        send_event(body, event_name, attributes=_build_attrs(attributes, plugin_name))
+    except Exception:
+        pass
+
+
+def _build_attrs(
+    attributes: Optional[Dict[str, Any]], plugin_name: str
+) -> Dict[str, Any]:
+    attrs = dict(attributes or {})
+    attrs["source"] = "anaconda-cli-base"
+    attrs["plugin"] = plugin_name
+    return attrs
 
 
 @contextmanager
 def suppress_http_spans() -> Generator[None, None, None]:
+    """Suppress HTTP-level spans inside a block to reduce trace noise.
+
+    Use when polling or retrying produces many identical HTTP spans that
+    obscure the real operation. The parent span still records full duration,
+    and HTTP metrics (counters/histograms) are still emitted — only spans
+    are suppressed.
+    """
     token = _suppress_http.set(True)
     try:
         yield
@@ -428,11 +429,6 @@ def suppress_http_spans() -> Generator[None, None, None]:
 
 def is_http_suppressed() -> bool:
     return _suppress_http.get()
-
-
-# ---------------------------------------------------------------------------
-# NoOp span
-# ---------------------------------------------------------------------------
 
 
 class _NoOpSpan:

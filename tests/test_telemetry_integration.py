@@ -53,10 +53,10 @@ def otlp_sink():
     mod.config.enabled = True
     mod.config.endpoint = f"http://localhost:{port}"
 
-    mod._backend_initialized = False
-    mod._init_backend()
+    mod._initialized = False
+    mod._ensure_initialized()
 
-    if not mod._backend_initialized:
+    if not mod._initialized:
         sink.stop()
         pytest.skip(
             "Telemetry failed to initialize (anaconda-opentelemetry not available)"
@@ -64,7 +64,7 @@ def otlp_sink():
 
     yield handler
 
-    mod.shutdown()
+    mod._shutdown_telemetry()
     time.sleep(0.3)
     sink.stop()
 
@@ -256,9 +256,9 @@ class TestCLIIntegration:
 
 class TestBackendInit:
     def test_multiple_calls_share_single_backend(self, otlp: Telemetry) -> None:
-        from anaconda_cli_base.telemetry import count, is_enabled
+        from anaconda_cli_base.telemetry import count, is_telemetry_enabled
 
-        assert is_enabled()
+        assert is_telemetry_enabled()
 
         count("from_first_call", plugin_name="plugin-a")
         count("from_second_call", plugin_name="plugin-b")

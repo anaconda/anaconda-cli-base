@@ -4,7 +4,7 @@ NOTE: The test conftest.py sets OTEL_SDK_DISABLED=true, which means
 config.enabled is always False in this test session. The real OTel backend
 never initializes during unit tests.
 
-Tests that need to verify "enabled" behavior set _backend_initialized=True
+Tests that need to verify "enabled" behavior set _initialized=True
 directly via monkeypatch to simulate an initialized backend without actually
 running the OTel SDK.
 
@@ -26,25 +26,25 @@ from pytest_mock import MockerFixture
 def reset_backend(monkeypatch: MonkeyPatch) -> Generator[None, None, None]:
     import anaconda_cli_base.telemetry as mod
 
-    monkeypatch.setattr(mod, "_backend_initialized", False)
+    monkeypatch.setattr(mod, "_initialized", False)
     yield
 
 
 class TestInit:
     def test_init_backend_respects_disabled_config(self) -> None:
         import anaconda_cli_base.telemetry as mod
-        from anaconda_cli_base.telemetry import _init_backend, config
+        from anaconda_cli_base.telemetry import _ensure_initialized, config
 
         assert config.enabled is False
-        _init_backend()
-        assert mod._backend_initialized is False
+        _ensure_initialized()
+        assert mod._initialized is False
 
     def test_init_backend_called_by_public_functions(
         self, mocker: MockerFixture
     ) -> None:
         import anaconda_cli_base.telemetry as mod
 
-        mock_init = mocker.patch.object(mod, "_init_backend")
+        mock_init = mocker.patch.object(mod, "_ensure_initialized")
         from anaconda_cli_base.telemetry import count
 
         count("x", plugin_name="test")
@@ -52,13 +52,13 @@ class TestInit:
 
     def test_thread_safety(self) -> None:
         import anaconda_cli_base.telemetry as mod
-        from anaconda_cli_base.telemetry import _init_backend
+        from anaconda_cli_base.telemetry import _ensure_initialized
 
         results = []
 
         def call_init():
-            _init_backend()
-            results.append(mod._backend_initialized)
+            _ensure_initialized()
+            results.append(mod._initialized)
 
         threads = [threading.Thread(target=call_init) for _ in range(10)]
         for t in threads:
@@ -71,8 +71,10 @@ class TestInit:
 
 class TestNoOpWhenDisabled:
     def test_count_noop(self) -> None:
+        import anaconda_cli_base.telemetry as mod
         from anaconda_cli_base.telemetry import count
 
+        assert not mod._initialized
         count("metric", plugin_name="test")
 
     def test_histogram_noop(self) -> None:
@@ -130,7 +132,7 @@ class TestCommandTracking:
         import anaconda_cli_base.telemetry as mod
         from anaconda_cli_base.telemetry import _before_command
 
-        assert not mod._backend_initialized
+        assert not mod._initialized
         result = _before_command(["ai", "chat"], "anaconda")
         assert result is None
 
@@ -140,7 +142,7 @@ class TestCommandTracking:
         import anaconda_cli_base.telemetry as mod
         from anaconda_cli_base.telemetry import _before_command
 
-        monkeypatch.setattr(mod, "_backend_initialized", True)
+        monkeypatch.setattr(mod, "_initialized", True)
         info = _before_command(
             ["ai", "chat", "--verbose", "--model=llama3"], "anaconda"
         )
@@ -153,7 +155,7 @@ class TestCommandTracking:
         import anaconda_cli_base.telemetry as mod
         from anaconda_cli_base.telemetry import _before_command
 
-        monkeypatch.setattr(mod, "_backend_initialized", True)
+        monkeypatch.setattr(mod, "_initialized", True)
         info = _before_command([], "anaconda")
         assert info is not None
         assert info.command == "anaconda"
