@@ -85,6 +85,10 @@ module = "binstar_client.*"
 ignore_missing_imports = true
 module = "rich_click.*"
 
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+module = "oteltel.*"
+
 [tool.pytest.ini_options]
 addopts = [
   "--cov=anaconda_cli_base",
