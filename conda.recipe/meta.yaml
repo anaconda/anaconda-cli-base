@@ -43,7 +43,7 @@ test:
   imports:
     - anaconda_cli_base
   commands:
-    - anaconda --version
+    - anaconda versions
     - python -c "from anaconda_cli_base import __version__; assert __version__ == \"{{ version }}\""
 about:
   summary: {{ project['description'] }}
