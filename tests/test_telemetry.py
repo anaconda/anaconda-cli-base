@@ -12,6 +12,9 @@ from pytest_mock import MockerFixture
 from .conftest import CLIInvoker
 
 
+from anaconda_cli_base.telemetry_config import TelemetryConfig
+
+
 @pytest.fixture(autouse=True)
 def isolate_telemetry(monkeypatch: MonkeyPatch) -> Generator[None, None, None]:
     import anaconda_cli_base.telemetry as mod
@@ -61,6 +64,14 @@ def mock_otel(mocker: MockerFixture) -> dict:
         "record_histogram": hist,
         "shutdown": shutdown,
     }
+
+
+@pytest.mark.parametrize("value", ["TRUE", "1", "YES"])
+@pytest.mark.usefixtures("config_toml")
+def test_telemetry_disabled(monkeypatch: MonkeyPatch, value: str) -> None:
+    monkeypatch.setenv("OTEL_SDK_DISABLED", value)
+    config = TelemetryConfig()
+    assert not config.enabled
 
 
 def test_successful_command_records_metrics(mock_otel: dict) -> None:
