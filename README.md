@@ -31,7 +31,7 @@ as environment variables with the `ANACONDA_TELEMETRY_` prefix.
 | Setting | Env Variable | Default | Description |
 |---------|-------------|---------|-------------|
 | `enabled` | `ANACONDA_TELEMETRY_ENABLED` | `true` | Enable or disable all CLI telemetry |
-| `endpoint` | `ANACONDA_TELEMETRY_ENDPOINT` | `null` | Set a custom OTEL endpoint ur. If `null` uses anaconda.com endpoint |
+| `endpoint` | `ANACONDA_TELEMETRY_ENDPOINT` | `None` | Set a custom OTEL endpoint ur. If `None` uses anaconda.com endpoint |
 | `share_session_identity` | `ANACONDA_TELEMETRY_SHARE_SESSION_IDENTITY` | `true` | Include anonymous session tokens for usage correlation |
 | `proxy_url` | `ANACONDA_TELEMETRY_PROXY_URL` | None | HTTP proxy for telemetry export (for corporate networks) |
 | `flush_timeout_ms` | `ANACONDA_TELEMETRY_FLUSH_TIMEOUT_MS` | `500` | Max milliseconds to wait for telemetry flush on CLI exit |
