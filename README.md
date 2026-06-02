@@ -34,6 +34,7 @@ as environment variables with the `ANACONDA_TELEMETRY_` prefix.
 | `share_session_identity` | `ANACONDA_TELEMETRY_SHARE_SESSION_IDENTITY` | `true` | Include anonymous session tokens for usage correlation |
 | `proxy_url` | `ANACONDA_TELEMETRY_PROXY_URL` | None | HTTP proxy for telemetry export (for corporate networks) |
 | `flush_timeout_ms` | `ANACONDA_TELEMETRY_FLUSH_TIMEOUT_MS` | `500` | Max milliseconds to wait for telemetry flush on CLI exit |
+| `export_interval_ms` | `ANACONDA_TELEMETRY_EXPORT_INTERVAL_MS` | `60000` | Millisecond frequency over which data is exported for long-running tasks |
 
 When `share_session_identity` is `true`, hashed machine and session tokens are included with telemetry
 data. These allow Anaconda to correlate usage patterns across CLI sessions without identifying you personally.
