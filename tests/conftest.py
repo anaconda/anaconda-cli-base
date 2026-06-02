@@ -27,6 +27,7 @@ from click.testing import Result
 # Force usage of new CLI
 os.environ["ANACONDA_CLI_FORCE_NEW"] = "true"
 os.environ["ANACONDA_CLI_DISABLE_PLUGINS"] = "true"
+os.environ["OTEL_SDK_DISABLED"] = "true"
 
 import anaconda_cli_base.cli
 

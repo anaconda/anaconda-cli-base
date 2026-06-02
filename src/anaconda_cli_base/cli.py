@@ -22,9 +22,13 @@ from anaconda_cli_base import __version__
 from anaconda_cli_base import console
 from anaconda_cli_base.plugins import load_registered_subcommands
 from anaconda_cli_base.exceptions import ERROR_HANDLERS
+from anaconda_cli_base.telemetry import _before_command, _after_command
 
 
 class ErrorHandledGroup(TyperGroup):
+    # Set True during recursive retry (exit_code == -1) to avoid double-counting telemetry
+    _retrying: bool = False
+
     def list_commands(self, _: click.core.Context) -> List[str]:
         """Return list of commands in the order they appear on the CLI."""
         return sorted(self.commands, reverse=False)
@@ -38,6 +42,11 @@ class ErrorHandledGroup(TyperGroup):
         windows_expand_args: bool = True,
         **extra: Any,
     ) -> None:
+        command_info = None
+        if not self._retrying:
+            resolved_args = args if args is not None else sys.argv[1:]
+            command_info = _before_command(resolved_args, prog_name)
+
         try:
             super().main(
                 args,
@@ -47,25 +56,51 @@ class ErrorHandledGroup(TyperGroup):
                 windows_expand_args,
                 **extra,
             )
+            if not self._retrying:
+                _after_command(command_info, success=True)
+        except SystemExit as e:
+            if not self._retrying:
+                _after_command(
+                    command_info,
+                    success=(e.code in (None, 0)),
+                    exit_code=int(e.code or 0),
+                )
+            raise
         except Exception as e:
             ctx = self._get_context(args, prog_name, windows_expand_args, **extra)
             if ctx.params.get("verbose", False):
+                if not self._retrying:
+                    _after_command(command_info, success=False, error=e)
                 raise e
 
             callback = ERROR_HANDLERS[type(e)]
             exit_code = callback(e)
             if exit_code == -1:
-                self.main(
-                    args,
-                    prog_name,
-                    complete_var,
-                    standalone_mode,
-                    windows_expand_args,
-                    **extra,
-                )
+                self._retrying = True
+                try:
+                    self.main(
+                        args,
+                        prog_name,
+                        complete_var,
+                        standalone_mode,
+                        windows_expand_args,
+                        **extra,
+                    )
+                except SystemExit as retry_exit:
+                    _after_command(
+                        command_info,
+                        success=(retry_exit.code in (None, 0)),
+                        exit_code=int(retry_exit.code or 0),
+                    )
+                    raise
+                finally:
+                    self._retrying = False
+                _after_command(command_info, success=True)
             else:
-                # this happens in self.main
-                # so the above is still correct
+                if not self._retrying:
+                    _after_command(
+                        command_info, success=False, error=e, exit_code=exit_code
+                    )
                 if not args:
                     args = sys.argv[1:]
                 cmd = " ".join(args or [])
