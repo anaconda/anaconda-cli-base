@@ -29,6 +29,7 @@ anaconda = "anaconda_cli_base.cli:app"
 [project.optional-dependencies]
 dev = [
   "mypy",
+  "oteltest",
   "pytest",
   "pytest-cov",
   "pytest-mock",
@@ -39,6 +40,9 @@ publish = [
   "build",
   "twine",
   "wheel"
+]
+telemetry = [
+  "anaconda-opentelemetry >=1.1.0"
 ]
 
 [project.scripts]
@@ -81,6 +85,10 @@ module = "binstar_client.*"
 ignore_missing_imports = true
 module = "rich_click.*"
 
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+module = "oteltest.*"
+
 [tool.pytest.ini_options]
 addopts = [
   "--cov=anaconda_cli_base",
@@ -105,7 +113,7 @@ target-version = "py38"
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py310,py311,py312,py313,py314,mypy
+envlist = py310,py311,py312,py313,py314,py310-otel,py310-integration,mypy
 isolated_build = True
 requires =
     tox-conda
@@ -113,7 +121,7 @@ requires =
 
 [gh-actions]
 python =
-    3.10: py310, mypy
+    3.10: py310, py310-otel, py310-integration, mypy
     3.11: py311, mypy
     3.12: py312, mypy
     3.13: py313, mypy
@@ -126,6 +134,7 @@ deps =
     pytest-cov
     pytest-mock
     typer !=0.12.2
+    oteltest
 conda_deps =
     pip
     anaconda-auth >=0.11
@@ -134,6 +143,28 @@ conda_channels =
     defaults
     conda-forge
 commands = pytest -m "not integration"
+
+[testenv:py310-otel]
+deps =
+    {[testenv]deps}
+    oteltest
+conda_deps =
+    {[testenv]conda_deps}
+    anaconda-opentelemetry >=1.1.0
+conda_channels =
+    {[testenv]conda_channels}
+commands = pytest -m "not integration"
+
+[testenv:py310-integration]
+deps =
+    {[testenv]deps}
+    oteltest
+conda_deps =
+    {[testenv]conda_deps}
+    anaconda-opentelemetry >=1.1.0
+conda_channels =
+    {[testenv]conda_channels}
+commands = pytest -m integration
 
 [testenv:mypy]
 deps =
@@ -144,10 +175,15 @@ deps =
     types-requests
     typer
     rich
+    oteltest
 conda_deps =
-    anaconda-auth >0.10.0
+    anaconda-auth >=0.11
+    anaconda-opentelemetry >=1.1.0
+    pip
 conda_channels =
     anaconda-cloud
+    defaults
+    conda-forge
 commands = mypy
 """
 

@@ -30,6 +30,7 @@ requirements:
     {% for dep in project['dependencies'] %}
     - {{ dep.lower() }}
     {% endfor %}
+    - anaconda-opentelemetry
   run_constrained:
     # Ensure coordinated rollout of changes related to multi-site configuration
     - anaconda-auth >=0.12.0
@@ -42,7 +43,7 @@ test:
   imports:
     - anaconda_cli_base
   commands:
-    - anaconda --version
+    - anaconda versions
     - python -c "from anaconda_cli_base import __version__; assert __version__ == \"{{ version }}\""
 about:
   summary: {{ project['description'] }}
