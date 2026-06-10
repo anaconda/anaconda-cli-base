@@ -421,6 +421,28 @@ Commands that block indefinitely (e.g., servers) need explicit lifecycle managem
 so the process exits cleanly on SIGTERM/SIGINT without hanging on telemetry flush.
 
 ```python
+from anaconda_cli_base.lifecycle import long_running
+
+@app.command()
+@long_running
+def serve():
+    asyncio.run(run_server())
+```
+
+The `@long_running` decorator:
+- Installs SIGTERM/SIGINT handlers that trigger a bounded shutdown sequence
+- Starts a watchdog timer (`WATCHDOG_DEADLINE_SECS = 10`) that force-exits the process if shutdown stalls
+- Calls `shutdown_telemetry(timeout_seconds=2.0)` to flush telemetry within a hard time bound
+
+Shutdown hooks are optional, but a blocking server usually wants one. On shutdown the
+decorator flushes telemetry and arms the watchdog, but it does not stop your loop: SIGINT
+unblocks `asyncio.run(...)` on its own (it raises `KeyboardInterrupt`), whereas SIGTERM does
+not. Without a hook to stop the loop, a SIGTERM'd server keeps running until the 10s watchdog
+force-exits it — no hang, but neither prompt nor graceful. Register a hook to unblock the loop
+(close a connection, unblock a stdin reader, signal the loop to stop); hooks run before the
+telemetry flush:
+
+```python
 from anaconda_cli_base.lifecycle import long_running, register_shutdown_hook
 
 @app.command()
@@ -429,11 +451,6 @@ def serve():
     register_shutdown_hook(cleanup_resources)
     asyncio.run(run_server())
 ```
-
-The `@long_running` decorator:
-- Installs SIGTERM/SIGINT handlers that trigger a bounded shutdown sequence
-- Starts a watchdog timer (`WATCHDOG_DEADLINE_SECS = 10`) that force-exits the process if shutdown stalls
-- Calls `shutdown_telemetry(timeout_seconds=2.0)` to flush telemetry within a hard time bound
 
 For signal handlers or manual shutdown paths, use `shutdown_telemetry` directly:
 
