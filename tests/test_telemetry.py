@@ -14,6 +14,7 @@ invocation with telemetry fully enabled against a local oteltest receiver.
 
 from __future__ import annotations
 
+import sys
 import threading
 from typing import Generator
 
@@ -241,3 +242,104 @@ class TestHttpSuppression:
                 assert is_http_suppressed() is True
             assert is_http_suppressed() is True
         assert is_http_suppressed() is False
+
+
+class TestShutdownDelegation:
+    def test_shutdown_telemetry_public_noop_when_disabled(self) -> None:
+        import anaconda_cli_base.telemetry as mod
+        from anaconda_cli_base.telemetry import shutdown_telemetry
+
+        assert mod._initialized is False
+        shutdown_telemetry()
+        shutdown_telemetry(timeout_seconds=1.0)
+        assert mod._initialized is False
+
+    def test_shutdown_telemetry_delegates_to_upstream(
+        self, monkeypatch: MonkeyPatch, mocker: MockerFixture
+    ) -> None:
+        import anaconda_cli_base.telemetry as mod
+        from anaconda_cli_base.telemetry import shutdown_telemetry
+
+        monkeypatch.setattr(mod, "_initialized", True)
+
+        fake_upstream_func = mocker.MagicMock()
+        fake_module = mocker.MagicMock()
+        fake_module.shutdown_telemetry = fake_upstream_func
+        monkeypatch.setitem(sys.modules, "anaconda_opentelemetry", fake_module)
+
+        shutdown_telemetry(timeout_seconds=3.5)
+
+        fake_upstream_func.assert_called_once_with(timeout_seconds=3.5)
+
+    def test_shutdown_telemetry_uses_default_timeout_from_config(
+        self, monkeypatch: MonkeyPatch, mocker: MockerFixture
+    ) -> None:
+        import anaconda_cli_base.telemetry as mod
+        from anaconda_cli_base.telemetry import shutdown_telemetry
+
+        monkeypatch.setattr(mod, "_initialized", True)
+
+        fake_upstream_func = mocker.MagicMock()
+        fake_module = mocker.MagicMock()
+        fake_module.shutdown_telemetry = fake_upstream_func
+        monkeypatch.setitem(sys.modules, "anaconda_opentelemetry", fake_module)
+
+        shutdown_telemetry()
+
+        expected = mod.config.flush_timeout_ms / 1000.0
+        fake_upstream_func.assert_called_once_with(timeout_seconds=expected)
+
+    def test_shutdown_telemetry_fallback_on_import_error(
+        self, monkeypatch: MonkeyPatch
+    ) -> None:
+        import anaconda_cli_base.telemetry as mod
+        from anaconda_cli_base.telemetry import shutdown_telemetry
+
+        monkeypatch.setattr(mod, "_initialized", True)
+        monkeypatch.setitem(sys.modules, "anaconda_opentelemetry", None)
+
+        shutdown_telemetry(timeout_seconds=1.0)
+        shutdown_telemetry()
+
+    def test_shutdown_telemetry_swallows_upstream_exception(
+        self, monkeypatch: MonkeyPatch, mocker: MockerFixture
+    ) -> None:
+        import anaconda_cli_base.telemetry as mod
+        from anaconda_cli_base.telemetry import shutdown_telemetry
+
+        monkeypatch.setattr(mod, "_initialized", True)
+
+        fake_upstream_func = mocker.MagicMock(side_effect=RuntimeError("boom"))
+        fake_module = mocker.MagicMock()
+        fake_module.shutdown_telemetry = fake_upstream_func
+        monkeypatch.setitem(sys.modules, "anaconda_opentelemetry", fake_module)
+
+        shutdown_telemetry(timeout_seconds=1.0)
+
+    def test_shutdown_telemetry_does_not_acquire_init_lock(
+        self, monkeypatch: MonkeyPatch, mocker: MockerFixture
+    ) -> None:
+        import anaconda_cli_base.telemetry as mod
+        from anaconda_cli_base.telemetry import shutdown_telemetry
+
+        monkeypatch.setattr(mod, "_initialized", True)
+
+        fake_upstream_func = mocker.MagicMock()
+        fake_module = mocker.MagicMock()
+        fake_module.shutdown_telemetry = fake_upstream_func
+        monkeypatch.setitem(sys.modules, "anaconda_opentelemetry", fake_module)
+
+        fail_lock = mocker.MagicMock()
+        fail_lock.acquire.side_effect = AssertionError(
+            "shutdown_telemetry must not acquire _lock"
+        )
+        fail_lock.__enter__.side_effect = AssertionError(
+            "shutdown_telemetry must not enter _lock context"
+        )
+        monkeypatch.setattr(mod, "_lock", fail_lock)
+
+        shutdown_telemetry(timeout_seconds=2.0)
+
+        fake_upstream_func.assert_called_once_with(timeout_seconds=2.0)
+        fail_lock.acquire.assert_not_called()
+        fail_lock.__enter__.assert_not_called()

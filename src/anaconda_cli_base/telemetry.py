@@ -153,6 +153,12 @@ def _ensure_initialized() -> None:
             otel_config.set_metrics_export_interval_ms(config.export_interval_ms)
             otel_config.set_tracing_export_interval_ms(config.export_interval_ms)
 
+            # Disable the SDK's atexit flush handlers so a killed long-running
+            # command can't hang on teardown; cli-base flushes explicitly instead
+            # (per-command via _after_command, and via the lifecycle watchdog).
+            if hasattr(otel_config, "set_shutdown_on_exit"):
+                otel_config.set_shutdown_on_exit(False)
+
             import platform as platform_mod
 
             service_version = re.sub(r"[^a-zA-Z0-9._-]", ".", __version__)[:30]
@@ -240,48 +246,36 @@ def _after_command(
     except Exception:
         pass
 
-    _shutdown_telemetry()
+    shutdown_telemetry()
 
 
-def _shutdown_telemetry() -> None:
-    """Flush all telemetry and disable atexit handlers to prevent exit hangs."""
+def shutdown_telemetry(*, timeout_seconds: float | None = None) -> None:
+    """Public bounded telemetry shutdown for consumers.
+
+    Flushes all telemetry providers with an optional time bound. No-op when
+    telemetry is disabled. Suitable for signal handlers and other last-resort
+    shutdown paths: the ``_initialized`` guard guarantees ``anaconda_opentelemetry``
+    is already imported, so no module loading happens here.
+
+    Args:
+        timeout_seconds: Maximum seconds to wait for flush. Defaults to
+            config.flush_timeout_ms / 1000.0 when None.
+    """
     if not _initialized:
         return
     try:
-        import atexit
+        from anaconda_opentelemetry import shutdown_telemetry as _upstream_shutdown
 
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.metrics import MeterProvider
-        from opentelemetry.sdk._logs import LoggerProvider
-        from opentelemetry import trace, metrics
-
-        from anaconda_opentelemetry.logging import _AnacondaLogger
-
-        flush_timeout = config.flush_timeout_ms
-
-        trace_provider = trace.get_tracer_provider()
-        if isinstance(trace_provider, TracerProvider):
-            trace_provider.force_flush(timeout_millis=flush_timeout)
-            if trace_provider._atexit_handler is not None:
-                atexit.unregister(trace_provider._atexit_handler)
-                trace_provider._atexit_handler = None
-
-        meter_provider = metrics.get_meter_provider()
-        if isinstance(meter_provider, MeterProvider):
-            meter_provider.force_flush(timeout_millis=flush_timeout)
-            if meter_provider._atexit_handler is not None:
-                atexit.unregister(meter_provider._atexit_handler)
-                meter_provider._atexit_handler = None
-
-        if _AnacondaLogger._instance is not None:
-            logger_provider = _AnacondaLogger._instance._provider
-            if isinstance(logger_provider, LoggerProvider):
-                logger_provider.force_flush(timeout_millis=flush_timeout)
-                if logger_provider._at_exit_handler is not None:
-                    atexit.unregister(logger_provider._at_exit_handler)
-                    logger_provider._at_exit_handler = None
+        effective_timeout = (
+            timeout_seconds
+            if timeout_seconds is not None
+            else config.flush_timeout_ms / 1000.0
+        )
+        _upstream_shutdown(timeout_seconds=effective_timeout)
+    except ImportError:
+        logger.debug("anaconda-opentelemetry.shutdown_telemetry not available")
     except Exception:
-        pass
+        logger.debug("Telemetry shutdown failed", exc_info=True)
 
 
 def is_telemetry_enabled() -> bool:
