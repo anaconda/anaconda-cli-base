@@ -42,7 +42,7 @@ publish = [
   "wheel"
 ]
 telemetry = [
-  "anaconda-opentelemetry >=1.1.0"
+  "anaconda-opentelemetry >=1.2.0"
 ]
 
 [project.scripts]
@@ -150,7 +150,7 @@ deps =
     oteltest
 conda_deps =
     {[testenv]conda_deps}
-    anaconda-opentelemetry >=1.1.0
+    anaconda-opentelemetry >=1.2.0
 conda_channels =
     {[testenv]conda_channels}
 commands = pytest -m "not integration"
@@ -161,7 +161,7 @@ deps =
     oteltest
 conda_deps =
     {[testenv]conda_deps}
-    anaconda-opentelemetry >=1.1.0
+    anaconda-opentelemetry >=1.2.0
 conda_channels =
     {[testenv]conda_channels}
 commands = pytest -m integration
@@ -178,7 +178,7 @@ deps =
     oteltest
 conda_deps =
     anaconda-auth >=0.11
-    anaconda-opentelemetry >=1.1.0
+    anaconda-opentelemetry >=1.2.0
     pip
 conda_channels =
     anaconda-cloud

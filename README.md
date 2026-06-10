@@ -415,6 +415,39 @@ returns a `NullHandler` — safe to call unconditionally with zero overhead.
 Use `get_otel_handler()` for structured errors/warnings. Use `log_event()` for business events
 that shouldn't appear in developer console output (e.g., `"model_downloaded"`, `"session_started"`).
 
+### Long-running commands
+
+Commands that block indefinitely (e.g., servers) need explicit lifecycle management
+so the process exits cleanly on SIGTERM/SIGINT without hanging on telemetry flush.
+
+```python
+from anaconda_cli_base.lifecycle import long_running, register_shutdown_hook
+
+@app.command()
+@long_running
+def serve():
+    register_shutdown_hook(cleanup_resources)
+    asyncio.run(run_server())
+```
+
+The `@long_running` decorator:
+- Installs SIGTERM/SIGINT handlers that trigger a bounded shutdown sequence
+- Starts a watchdog timer (`WATCHDOG_DEADLINE_SECS = 10`) that force-exits the process if shutdown stalls
+- Calls `shutdown_telemetry(timeout_seconds=2.0)` to flush telemetry within a hard time bound
+
+For signal handlers or manual shutdown paths, use `shutdown_telemetry` directly:
+
+```python
+from anaconda_cli_base.telemetry import shutdown_telemetry
+
+# In a signal handler or cleanup path:
+shutdown_telemetry(timeout_seconds=2.0)
+```
+
+Short-lived commands (the common case) need no changes — telemetry is flushed
+automatically via `_after_command` on every normal CLI exit. The `flush_timeout_ms`
+config (default 500ms) controls the per-command flush bound.
+
 ## Setup for development
 
 Ensure you have `conda` installed.

@@ -64,7 +64,7 @@ def otlp_sink():  # type: ignore[no-untyped-def]
 
     yield handler
 
-    mod._shutdown_telemetry()
+    mod.shutdown_telemetry()
     time.sleep(0.3)
     sink.stop()
 
