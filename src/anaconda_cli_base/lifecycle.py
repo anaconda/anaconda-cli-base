@@ -89,10 +89,12 @@ def long_running(func: Callable) -> Callable:
     Idempotent: re-applying is a no-op. Windows-safe (guards on signal
     availability).
     """
+
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         _install_signal_handlers()
         return func(*args, **kwargs)
+
     return wrapper
 
 

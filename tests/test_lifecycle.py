@@ -206,9 +206,7 @@ class TestLongRunningDecorator:
         assert signal_signal.call_count == 0
         assert mod._handlers_installed is False
 
-    def test_invocation_installs_signal_handlers(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_invocation_installs_signal_handlers(self, mocker: MockerFixture) -> None:
         signal_signal = mocker.patch("anaconda_cli_base.lifecycle.signal.signal")
 
         @mod.long_running

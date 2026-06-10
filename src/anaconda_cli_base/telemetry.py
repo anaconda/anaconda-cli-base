@@ -265,7 +265,12 @@ def shutdown_telemetry(*, timeout_seconds: float | None = None) -> None:
         return
     try:
         from anaconda_opentelemetry import shutdown_telemetry as _upstream_shutdown
-        effective_timeout = timeout_seconds if timeout_seconds is not None else config.flush_timeout_ms / 1000.0
+
+        effective_timeout = (
+            timeout_seconds
+            if timeout_seconds is not None
+            else config.flush_timeout_ms / 1000.0
+        )
         _upstream_shutdown(timeout_seconds=effective_timeout)
     except ImportError:
         logger.debug("anaconda-opentelemetry.shutdown_telemetry not available")
