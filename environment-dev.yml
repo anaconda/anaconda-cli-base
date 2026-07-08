@@ -4,7 +4,6 @@ channels:
 - conda-forge
 dependencies:
 - python=3.10
-- anaconda-opentelemetry
 - tox=3
 - tox-conda
 - pip
