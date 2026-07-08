@@ -12,7 +12,8 @@ dependencies = [
   "pydantic-settings >=2.3",
   "pydantic >=2.12",
   "tomli",
-  "tomlkit"
+  "tomlkit",
+  "anaconda-opentelemetry >=1.2.1"
 ]
 description = "A base CLI entrypoint supporting Anaconda CLI plugins"
 dynamic = ["version"]
@@ -40,9 +41,6 @@ publish = [
   "build",
   "twine",
   "wheel"
-]
-telemetry = [
-  "anaconda-opentelemetry >=1.2.0"
 ]
 
 [project.scripts]
@@ -150,7 +148,6 @@ deps =
     oteltest
 conda_deps =
     {[testenv]conda_deps}
-    anaconda-opentelemetry >=1.2.0
 conda_channels =
     {[testenv]conda_channels}
 commands = pytest -m "not integration"
@@ -161,7 +158,6 @@ deps =
     oteltest
 conda_deps =
     {[testenv]conda_deps}
-    anaconda-opentelemetry >=1.2.0
 conda_channels =
     {[testenv]conda_channels}
 commands = pytest -m integration
@@ -178,7 +174,6 @@ deps =
     oteltest
 conda_deps =
     anaconda-auth >=0.11
-    anaconda-opentelemetry >=1.2.0
     pip
 conda_channels =
     anaconda-cloud
