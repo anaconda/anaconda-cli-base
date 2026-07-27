@@ -127,12 +127,16 @@ class TestAttrs:
         assert "source" not in original
         assert "source" in result
 
+
 class TestCustomAttrs:
     def test_add_command_attributes_stores_valid_attrs(
         self, monkeypatch: MonkeyPatch
     ) -> None:
         import anaconda_cli_base.telemetry as mod
-        from anaconda_cli_base.telemetry import add_command_attributes, _command_attributes
+        from anaconda_cli_base.telemetry import (
+            add_command_attributes,
+            _command_attributes,
+        )
 
         monkeypatch.setattr(mod, "_initialized", True)
         add_command_attributes(role="viewer", count=5)
@@ -144,13 +148,19 @@ class TestCustomAttrs:
         self, monkeypatch: MonkeyPatch, mocker: MockerFixture
     ) -> None:
         import anaconda_cli_base.telemetry as mod
-        from anaconda_cli_base.telemetry import add_command_attributes, _before_command, _after_command
+        from anaconda_cli_base.telemetry import (
+            add_command_attributes,
+            _before_command,
+            _after_command,
+        )
 
         monkeypatch.setattr(mod, "_initialized", True)
         fake_otel = mocker.MagicMock()
         monkeypatch.setitem(sys.modules, "anaconda_opentelemetry", fake_otel)
 
-        add_command_attributes(command="fake_command", plugin="fake_plugin", custom="value")
+        add_command_attributes(
+            command="fake_command", plugin="fake_plugin", custom="value"
+        )
         info = _before_command(["test", "cmd"], "anaconda")
         _after_command(info, success=True)
 
