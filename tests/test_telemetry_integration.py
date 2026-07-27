@@ -239,6 +239,7 @@ class TestCustomAttributes:
         _wait_for(otlp, "metric")
 
         attrs = {}
+        # very ugly unpacking, necessary for protobuf structure
         for req in otlp.metric_requests:
             for rs in req.pbreq.resource_metrics:
                 for sm in rs.scope_metrics:

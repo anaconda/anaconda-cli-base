@@ -238,6 +238,7 @@ def _after_command(
 
         custom_attrs = _command_attributes.get() or {}
         for k, v in custom_attrs.items():
+            # key insertion that protects base/pre-existing values
             if k not in attrs:
                 attrs[k] = v
             else:
@@ -403,7 +404,6 @@ def log_event(
     try:
         from anaconda_opentelemetry.signals import send_event
 
-        logger.debug(f"Attributes: {attributes}")
         send_event(body, event_name, attributes=_build_attrs(attributes, plugin_name))
     except Exception:
         pass
@@ -412,17 +412,14 @@ def log_event(
 def add_command_attributes(**attributes: Any) -> None:
     """Add custom attributes to the current command's telemetry.
 
-    These attributes are merged into the command metrics/events when the
-    command completes. Use this to track command-specific context like
-    role, namespace, or other semantic attributes beyond flags.
+    These attributes are merged into the base command metrics when the
+    command completes. Used to add additional attributes to default telemetry
+    without sending an additional telemetry event.
 
     Safe to call multiple times - attributes are merged (later calls override).
-    No-op when telemetry is disabled. Invalid attribute values are filtered.
-    Custom attributes will not override any attributes already set.
-
-    Example:
-        from anaconda_cli_base.telemetry import add_command_attributes
-        add_command_attributes(role="viewer", namespace="myorg", shared_channels=3)
+    Custom attributes will only override previously set custom attributes, not
+    attributes of the base command (set in _after_command). No-op when telemetry
+    is disabled. Invalid attribute values are filtered.
     """
     if not _initialized:
         return
