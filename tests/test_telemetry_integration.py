@@ -236,6 +236,7 @@ class TestCustomAttributes:
         add_command_attributes(role="viewer", namespace="test-org", count=42)
         _after_command(info, success=True)
 
+        _flush()
         _wait_for(otlp, "metric")
 
         attrs = {}
@@ -257,6 +258,7 @@ class TestCustomAttributes:
                                         }
                                         break
 
+        assert attrs, "No matching cli_command_invoked metric found with command='test command'"
         assert attrs["role"].string_value == "viewer"
         assert attrs["namespace"].string_value == "test-org"
         assert attrs["count"].int_value == 42
