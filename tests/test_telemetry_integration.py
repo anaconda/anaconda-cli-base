@@ -222,6 +222,45 @@ class TestResourceAttributes:
         assert len(resource_attrs["platform"].string_value) > 0
 
 
+class TestCustomAttributes:
+    def test_custom_command_attributes_included_in_metrics(
+        self, otlp: Telemetry
+    ) -> None:
+        from anaconda_cli_base.telemetry import (
+            add_command_attributes,
+            _before_command,
+            _after_command,
+        )
+
+        info = _before_command(["test", "command"], "anaconda")
+        add_command_attributes(role="viewer", namespace="test-org", count=42)
+        _after_command(info, success=True)
+
+        _wait_for(otlp, "metric")
+
+        attrs = {}
+        for req in otlp.metric_requests:
+            for rs in req.pbreq.resource_metrics:
+                for sm in rs.scope_metrics:
+                    for metric in sm.metrics:
+                        if metric.name == "cli_command_invoked":
+                            for dp in metric.sum.data_points:
+                                for kv in dp.attributes:
+                                    if (
+                                        kv.key == "command"
+                                        and kv.value.string_value == "test command"
+                                    ):
+                                        attrs = {
+                                            attr.key: attr.value
+                                            for attr in dp.attributes
+                                        }
+                                        break
+
+        assert attrs["role"].string_value == "viewer"
+        assert attrs["namespace"].string_value == "test-org"
+        assert attrs["count"].int_value == 42
+
+
 class TestCLIIntegration:
     def test_cli_command_delivers_metrics(self, otlp: Telemetry) -> None:
         from anaconda_cli_base.telemetry import _before_command

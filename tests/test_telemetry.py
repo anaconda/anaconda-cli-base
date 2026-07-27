@@ -127,6 +127,54 @@ class TestAttrs:
         assert "source" not in original
         assert "source" in result
 
+class TestCustomAttrs:
+    def test_add_command_attributes_stores_valid_attrs(
+        self, monkeypatch: MonkeyPatch
+    ) -> None:
+        import anaconda_cli_base.telemetry as mod
+        from anaconda_cli_base.telemetry import add_command_attributes, _command_attributes
+
+        monkeypatch.setattr(mod, "_initialized", True)
+        add_command_attributes(role="viewer", count=5)
+
+        attrs = _command_attributes.get()
+        assert attrs == {"role": "viewer", "count": 5}
+
+    def test_add_command_attributes_does_not_overwrite_base_attrs(
+        self, monkeypatch: MonkeyPatch, mocker: MockerFixture
+    ) -> None:
+        import anaconda_cli_base.telemetry as mod
+        from anaconda_cli_base.telemetry import add_command_attributes, _before_command, _after_command
+
+        monkeypatch.setattr(mod, "_initialized", True)
+        fake_otel = mocker.MagicMock()
+        monkeypatch.setitem(sys.modules, "anaconda_opentelemetry", fake_otel)
+
+        add_command_attributes(command="fake_command", plugin="fake_plugin", custom="value")
+        info = _before_command(["test", "cmd"], "anaconda")
+        _after_command(info, success=True)
+
+        attrs = fake_otel.record_histogram.call_args[0][2]
+        assert attrs["command"] == "test cmd"
+        assert attrs["plugin"] == "test"
+        assert attrs["custom"] == "value"
+
+    def test_add_command_attributes_filters_invalid_types(
+        self, monkeypatch: MonkeyPatch
+    ) -> None:
+        import anaconda_cli_base.telemetry as mod
+        from anaconda_cli_base.telemetry import (
+            add_command_attributes,
+            _command_attributes,
+        )
+
+        monkeypatch.setattr(mod, "_initialized", True)
+        add_command_attributes(valid="test", invalid={"key": "value"})
+
+        attrs = _command_attributes.get()
+        assert attrs["valid"] == "test"
+        assert "invalid" not in attrs
+
 
 class TestCommandTracking:
     def test_before_command_returns_none_when_disabled(self) -> None:
