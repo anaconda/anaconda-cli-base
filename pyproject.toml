@@ -89,6 +89,10 @@ module = "rich_click.*"
 ignore_missing_imports = true
 module = "oteltest.*"
 
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+module = "anaconda_auth.*"
+
 [tool.pytest.ini_options]
 addopts = [
   "--cov=anaconda_cli_base",
