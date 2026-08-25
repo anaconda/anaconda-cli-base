@@ -1,23 +1,26 @@
+from __future__ import annotations
+
 import os
 from importlib.metadata import Distribution
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional, Tuple, cast, Dict, Iterator, Union
+from typing import Dict, Iterator, Tuple, Union, cast
 
 import pytest
 import typer
-from pydantic import Field
-from pydantic import BaseModel
-from pydantic import RootModel
-from pydantic import ValidationError
+from pydantic import BaseModel, Field, RootModel, ValidationError
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
 
 import anaconda_cli_base.cli
-from anaconda_cli_base.config import AnacondaBaseSettings
-from anaconda_cli_base.config import AnacondaConfigTomlSettingsSource
-from anaconda_cli_base.exceptions import AnacondaConfigTomlSyntaxError
-from anaconda_cli_base.exceptions import AnacondaConfigValidationError
+from anaconda_cli_base.config import (
+    AnacondaBaseSettings,
+    AnacondaConfigTomlSettingsSource,
+)
+from anaconda_cli_base.exceptions import (
+    AnacondaConfigTomlSyntaxError,
+    AnacondaConfigValidationError,
+)
 from anaconda_cli_base.plugins import load_registered_subcommands
 
 from .conftest import CLIInvoker
@@ -32,18 +35,16 @@ class Nested(BaseModel):
 class DerivedSettings(AnacondaBaseSettings, plugin_name="derived"):
     foo: str = "default"
     nested: Nested = Nested()
-    optional: Optional[int] = None
-    not_required: Optional[str] = None
-    docker_test: Optional[str] = "default"
+    optional: int | None = None
+    not_required: str | None = None
+    docker_test: str | None = "default"
 
 
 def test_settings_plugin_name_str() -> None:
     env_prefix = DerivedSettings.model_config.get("env_prefix", "")
     assert env_prefix == "ANACONDA_DERIVED_"
 
-    table_header = DerivedSettings.model_config.get(
-        "pyproject_toml_table_header", tuple()
-    )
+    table_header = DerivedSettings.model_config.get("pyproject_toml_table_header", ())
     assert table_header == (
         "plugin",
         "derived",
@@ -56,7 +57,7 @@ def test_settings_plugin_name_tuple() -> None:
     env_prefix = TupleName.model_config.get("env_prefix", "")
     assert env_prefix == "ANACONDA_NESTED_SETTINGS_"
 
-    table_header = TupleName.model_config.get("pyproject_toml_table_header", tuple())
+    table_header = TupleName.model_config.get("pyproject_toml_table_header", ())
     assert table_header == ("plugin", "nested", "settings")
 
 
@@ -343,7 +344,7 @@ def config_toml(tmp_path: Path, monkeypatch: MonkeyPatch) -> Iterator[Path]:
 def test_root_level_table(config_toml: Path) -> None:
     class RootLevelTable(AnacondaBaseSettings, plugin_name=None):
         foo: str = "bar"
-        table: Optional[Dict[str, str]] = None
+        table: dict[str, str] | None = None
 
     config_toml.write_text(
         dedent("""\
@@ -360,7 +361,7 @@ def test_root_level_table(config_toml: Path) -> None:
 
 def test_table_name_reads_top_level_section(config_toml: Path) -> None:
     class TelemetryConfig(AnacondaBaseSettings, table_name="telemetry"):
-        endpoint: Optional[str] = None
+        endpoint: str | None = None
         anon_usage: bool = True
 
     config_toml.write_text(
@@ -378,7 +379,7 @@ def test_table_name_reads_top_level_section(config_toml: Path) -> None:
 
 def test_table_name_env_prefix(monkeypatch: MonkeyPatch, config_toml: Path) -> None:
     class TelemetryConfig(AnacondaBaseSettings, table_name="telemetry"):
-        endpoint: Optional[str] = None
+        endpoint: str | None = None
 
     monkeypatch.setenv("ANACONDA_TELEMETRY_ENDPOINT", "https://env-override.com:4317")
 
@@ -388,7 +389,7 @@ def test_table_name_env_prefix(monkeypatch: MonkeyPatch, config_toml: Path) -> N
 
 def test_table_name_write_config(config_toml: Path) -> None:
     class TelemetryConfig(AnacondaBaseSettings, table_name="telemetry"):
-        endpoint: Optional[str] = None
+        endpoint: str | None = None
         anon_usage: bool = True
 
     config = TelemetryConfig(endpoint="https://otel.anaconda.com:4317")
@@ -413,8 +414,8 @@ class NestedFlag(BaseModel):
 
 class Plugin(AnacondaBaseSettings, plugin_name="plugged"):
     foo: str = "bar"
-    might_be_none: Optional[str] = "value"
-    table: Optional[Dict[str, str]] = None
+    might_be_none: str | None = "value"
+    table: dict[str, str] | None = None
     nested: NestedFlag = NestedFlag()
 
 
@@ -719,7 +720,7 @@ def test_write_remove_plugin(config_toml: Path) -> None:
 
 class RootConfig(AnacondaBaseSettings, plugin_name=None):
     foo: str = "bar"
-    table: Optional[Dict[str, str]] = None
+    table: dict[str, str] | None = None
 
 
 def test_write_root_level_key(config_toml: Path) -> None:
@@ -761,7 +762,7 @@ def test_write_root_level_key(config_toml: Path) -> None:
 def test_write_nested_update(config_toml: Path) -> None:
     class Nested(AnacondaBaseSettings, plugin_name="nested"):
         foo: str = "bar"
-        table: Dict[str, str] = {}
+        table: dict[str, str] = Field(default_factory=dict)
 
     nested = Nested()
     nested.table["key"] = "value"
@@ -837,7 +838,7 @@ def test_remove_root_level_table(config_toml: Path) -> None:
 
 
 class Item(BaseModel):
-    key: Optional[str] = None
+    key: str | None = None
     key2: str = "default"
 
 

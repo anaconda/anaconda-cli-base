@@ -1,7 +1,9 @@
-import os
-from typing import Optional, Any
+from __future__ import annotations
 
-from pydantic import field_validator, Field
+import os
+from typing import Any
+
+from pydantic import Field, field_validator
 
 from anaconda_cli_base.config import AnacondaBaseSettings
 
@@ -17,9 +19,9 @@ class TelemetryConfig(AnacondaBaseSettings, table_name="telemetry"):
     """
 
     enabled: bool = Field(default=True, validate_default=True)
-    endpoint: Optional[str] = None
+    endpoint: str | None = None
     share_session_identity: bool = True
-    proxy_url: Optional[str] = None
+    proxy_url: str | None = None
     flush_timeout_ms: int = 500
     export_interval_ms: int = 60000
 

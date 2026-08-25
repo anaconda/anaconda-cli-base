@@ -15,7 +15,6 @@ import socket
 import time
 
 import pytest
-
 from oteltest.sink import HttpSink
 from oteltest.sink.handler import AccumulatingHandler, Telemetry
 
@@ -81,11 +80,11 @@ pytestmark = pytest.mark.integration
 
 
 def _flush() -> None:
-    from opentelemetry import trace, metrics
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.metrics import MeterProvider
-    from opentelemetry.sdk._logs import LoggerProvider
     from anaconda_opentelemetry.logging import _AnacondaLogger
+    from opentelemetry import metrics, trace
+    from opentelemetry.sdk._logs import LoggerProvider
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.trace import TracerProvider
 
     tp = trace.get_tracer_provider()
     if isinstance(tp, TracerProvider):
@@ -227,9 +226,9 @@ class TestCustomAttributes:
         self, otlp: Telemetry
     ) -> None:
         from anaconda_cli_base.telemetry import (
-            add_command_attributes,
-            _before_command,
             _after_command,
+            _before_command,
+            add_command_attributes,
         )
 
         info = _before_command(["test", "command"], "anaconda")
@@ -268,8 +267,9 @@ class TestCustomAttributes:
 
 class TestCLIIntegration:
     def test_cli_command_delivers_metrics(self, otlp: Telemetry) -> None:
-        from anaconda_cli_base.telemetry import _before_command
         from anaconda_opentelemetry import increment_counter, record_histogram
+
+        from anaconda_cli_base.telemetry import _before_command
 
         info = _before_command(["test", "subcommand"], "anaconda")
         assert info is not None

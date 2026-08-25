@@ -1,26 +1,19 @@
+from __future__ import annotations
+
 import logging
 import os
 import sys
 import warnings
-from importlib.metadata import EntryPoint, Distribution
-from importlib.metadata import entry_points
+from importlib.metadata import Distribution, EntryPoint, entry_points
 from sys import version_info
-from typing import Any
-from typing import Callable
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import cast
-from typing import Set
-from typing import Union
+from typing import Any, Callable, Tuple, cast
 
 import typer
 from rich.table import Table
 from typer.models import DefaultPlaceholder
 
-from anaconda_cli_base.console import console, select_from_list
 from anaconda_cli_base import __version__
+from anaconda_cli_base.console import console, select_from_list
 
 log = logging.getLogger(__name__)
 
@@ -38,13 +31,13 @@ SiteDisplayName = str
 
 def _load_entry_points_for_group(
     group: str,
-) -> List[Tuple[PluginName, ModuleName, typer.Typer, Union[Distribution, None]]]:
+) -> list[tuple[PluginName, ModuleName, typer.Typer, Distribution | None]]:
     # The API was changed in Python 3.10, see https://docs.python.org/3/library/importlib.metadata.html#entry-points
-    found_entry_points: Tuple[EntryPoint, ...]
-    if version_info.major == 3 and version_info.minor <= 9:
+    found_entry_points: tuple[EntryPoint, ...]
+    if version_info < (3, 10):
         found_entry_points = cast(
             Tuple[EntryPoint, ...],
-            entry_points().get(group, tuple()),  # type:ignore
+            entry_points().get(group, ()),  # type:ignore
         )
     else:
         found_entry_points = tuple(entry_points().select(group=group))  # type: ignore
@@ -69,14 +62,14 @@ AUTH_HANDLER_ALIASES = {
 def _select_auth_handler_and_args(
     *,
     ctx: typer.Context,
-    at: Optional[str],
-    hostname: Optional[str],
-    username: Optional[str],
-    password: Optional[str],
+    at: str | None,
+    hostname: str | None,
+    username: str | None,
+    password: str | None,
     help: bool,
-    auth_handlers: Dict[str, typer.Typer],
-    auth_handlers_dropdown: List[Tuple[SiteName, SiteDisplayName]],
-) -> Tuple[Callable, list[str]]:
+    auth_handlers: dict[str, typer.Typer],
+    auth_handlers_dropdown: list[tuple[SiteName, SiteDisplayName]],
+) -> tuple[Callable, list[str]]:
     """Select the appropriate auth handler, and construct its arguments, depending on
     user input. Isolated to enable better testing to support legacy anaconda.org login
     flows.
@@ -163,13 +156,13 @@ def _select_auth_handler_and_args(
 
 def _add_auth_actions_to_app(
     app: typer.Typer,
-    auth_handlers: Dict[str, typer.Typer],
-    auth_handlers_dropdown: List[Tuple[SiteName, SiteDisplayName]],
+    auth_handlers: dict[str, typer.Typer],
+    auth_handlers_dropdown: list[tuple[SiteName, SiteDisplayName]],
 ) -> None:
     # this ensures that we can reach the help message
     # for the handler chosen by the --at flag if it appears
     # before --help
-    def handler_help(ctx: typer.Context, _: Any, at: Optional[str]) -> Optional[str]:
+    def handler_help(ctx: typer.Context, _: Any, at: str | None) -> str | None:
         show_help = ctx.params.get("help", False) is True
         if show_help:
             help_str = ctx.get_help()
@@ -183,13 +176,13 @@ def _add_auth_actions_to_app(
 
     def _action(
         ctx: typer.Context,
-        at: Optional[str] = typer.Option(
+        at: str | None = typer.Option(
             None, help=f"Choose from {site_names}", callback=handler_help
         ),
         # Legacy options from anaconda-client login subcommand
-        hostname: Optional[str] = typer.Option(None, hidden=True),
-        username: Optional[str] = typer.Option(None, hidden=True),
-        password: Optional[str] = typer.Option(None, hidden=True),
+        hostname: str | None = typer.Option(None, hidden=True),
+        username: str | None = typer.Option(None, hidden=True),
+        password: str | None = typer.Option(None, hidden=True),
         help: bool = typer.Option(False, "--help", "-h"),
     ) -> None:
         ctx_at = ctx.obj.params.get("at")
@@ -227,8 +220,8 @@ def _add_auth_actions_to_app(
 def _load_auth_handler(
     subcommand_app: typer.Typer,
     name: PluginName,
-    auth_handlers: Dict[PluginName, typer.Typer],
-    auth_handler_selectors: List[Tuple[SiteName, SiteDisplayName]],
+    auth_handlers: dict[PluginName, typer.Typer],
+    auth_handler_selectors: list[tuple[SiteName, SiteDisplayName]],
 ) -> None:
     """Load a specific auth handler, populating the dropdown and auth_handlers
     mappings as we go. This allows users to dynamically select a specific
@@ -237,24 +230,20 @@ def _load_auth_handler(
     auth_handlers[name] = subcommand_app
     # this means anaconda-auth is available
     if name == "auth":
-        try:
-            # Type hints are missing temporarily
-            from anaconda_auth.config import AnacondaAuthSitesConfig  # type: ignore
+        # Type hints are missing temporarily
+        from anaconda_auth.config import AnacondaAuthSitesConfig  # type: ignore
 
-            site_config = AnacondaAuthSitesConfig()
-            for site_name, site in site_config.sites.root.items():
-                display_name = site_name
-                if site_name != site.domain:
-                    display_name += f" ({site.domain})"
+        site_config = AnacondaAuthSitesConfig()
+        for site_name, site in site_config.sites.root.items():
+            display_name = site_name
+            if site_name != site.domain:
+                display_name += f" ({site.domain})"
 
-                if site_name == site_config.default_site:
-                    display_name += " [cyan]\\[default][/cyan]"
+            if site_name == site_config.default_site:
+                display_name += " [cyan]\\[default][/cyan]"
 
-                auth_handlers[site_name] = subcommand_app
-                auth_handler_selectors.append((site_name, display_name))
-
-        except ImportError as e:
-            raise e
+            auth_handlers[site_name] = subcommand_app
+            auth_handler_selectors.append((site_name, display_name))
     elif name == "cloud":
         # This plugin alias duplicates anaconda.com, so we skip it
         pass
@@ -264,9 +253,9 @@ def _load_auth_handler(
 
 
 def _sort_selectors(
-    item: Tuple[SiteName, SiteDisplayName],
-) -> Tuple[int, Tuple[SiteName, SiteDisplayName]]:
-    name, display_name = item
+    item: tuple[SiteName, SiteDisplayName],
+) -> tuple[int, tuple[SiteName, SiteDisplayName]]:
+    _name, display_name = item
     if "default" in display_name:
         return (0, item)
     if display_name == "anaconda.com":
@@ -280,9 +269,9 @@ def _sort_selectors(
 def load_registered_subcommands(app: typer.Typer) -> None:
     """Load all subcommands from plugins."""
     subcommand_entry_points = _load_entry_points_for_group(PLUGIN_GROUP_NAME)
-    auth_handlers: Dict[PluginName, typer.Typer] = {}
-    auth_handler_selectors: List[Tuple[SiteName, SiteDisplayName]] = []
-    plugin_versions: Set[Tuple[str, str]] = {
+    auth_handlers: dict[PluginName, typer.Typer] = {}
+    auth_handler_selectors: list[tuple[SiteName, SiteDisplayName]] = []
+    plugin_versions: set[tuple[str, str]] = {
         ("anaconda-cli-base", __version__),
     }
 

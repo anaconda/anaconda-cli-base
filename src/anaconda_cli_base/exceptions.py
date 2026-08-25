@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import sys
 from collections import defaultdict
-from typing import Callable, Dict, Type
+from typing import Callable
 
 from anaconda_cli_base.console import console
 
@@ -24,12 +26,12 @@ def catch_all(e: Exception) -> int:
     return 1
 
 
-ERROR_HANDLERS: Dict[Type[Exception], ErrorHandlingCallback] = defaultdict(
+ERROR_HANDLERS: dict[type[Exception], ErrorHandlingCallback] = defaultdict(
     lambda: catch_all
 )
 
 
-def register_error_handler(exc: Type[Exception]) -> Callable:
+def register_error_handler(exc: type[Exception]) -> Callable:
     def decorator(f: ErrorHandlingCallback) -> Callable:
         ERROR_HANDLERS[exc] = f
         return f

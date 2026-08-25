@@ -7,13 +7,15 @@ Short-lived commands do not need this module — they exit cleanly via
 ``_after_command`` which handles telemetry flush automatically.
 """
 
+from __future__ import annotations
+
 import functools
 import logging
 import os
 import signal
 import threading
 from types import FrameType
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable
 
 from anaconda_cli_base import telemetry
 
@@ -23,7 +25,7 @@ WATCHDOG_DEADLINE_SECS: float = 10.0
 """Safety-net timeout. After trigger_shutdown() fires, if the process hasn't
 exited within this many seconds, os._exit(143) forces termination."""
 
-_hooks: List[Callable[[], None]] = []
+_hooks: list[Callable[[], None]] = []
 _triggered: bool = False
 _trigger_lock = threading.Lock()
 
@@ -40,7 +42,7 @@ def register_shutdown_hook(hook: Callable[[], None]) -> None:
     _hooks.append(hook)
 
 
-def trigger_shutdown(signum: Optional[int] = None) -> None:
+def trigger_shutdown(signum: int | None = None) -> None:
     """Trigger the shutdown sequence. Idempotent.
 
     1. Starts the watchdog timer FIRST (so nothing below can prevent it).
@@ -74,7 +76,7 @@ def trigger_shutdown(signum: Optional[int] = None) -> None:
         logger.debug("Telemetry shutdown in trigger_shutdown failed", exc_info=True)
 
 
-def _force_exit(signum: Optional[int] = None) -> None:
+def _force_exit(signum: int | None = None) -> None:
     """Last-resort process termination. Fires from the watchdog timer."""
     os._exit(128 + signum if signum is not None else 143)
 
@@ -107,7 +109,7 @@ def _install_signal_handlers() -> None:
     if _handlers_installed:
         return
 
-    def _signal_handler(signum: int, frame: Optional[FrameType]) -> None:
+    def _signal_handler(signum: int, frame: FrameType | None) -> None:
         trigger_shutdown(signum)
         # For SIGINT, raise KeyboardInterrupt so normal unwinding proceeds
         if signum == signal.SIGINT:

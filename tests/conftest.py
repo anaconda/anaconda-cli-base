@@ -5,24 +5,24 @@ import sys
 from importlib import reload
 from pathlib import Path
 from types import ModuleType
-from typing import IO
-from typing import Any
-from typing import Callable
-from typing import Mapping
-from typing import Optional
-from typing import Protocol
-from typing import Sequence
-from typing import Union
-from typing import Generator
+from typing import (
+    IO,
+    Any,
+    Callable,
+    Generator,
+    Mapping,
+    Protocol,
+    Sequence,
+)
 
 import pytest
 import readchar
 import typer
-from typer import rich_utils
+from click.testing import Result
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
+from typer import rich_utils
 from typer.testing import CliRunner
-from click.testing import Result
 
 # Force usage of new CLI
 os.environ["ANACONDA_CLI_FORCE_NEW"] = "true"
@@ -36,9 +36,9 @@ class CLIInvoker(Protocol):
     def __call__(
         self,
         # app: typer.Typer,
-        args: Optional[Union[str, Sequence[str]]] = None,
-        input: Optional[Union[bytes, str, IO[Any]]] = None,
-        env: Optional[Mapping[str, str]] = None,
+        args: str | Sequence[str] | None = None,
+        input: bytes | str | IO[Any] | None = None,
+        env: Mapping[str, str] | None = None,
         catch_exceptions: bool = True,
         color: bool = False,
         **extra: Any,
@@ -89,9 +89,9 @@ def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
 
     # Construct a wrapper function so that we can also patch sys.argv when invoking the CLI
     def f(
-        args: Optional[Union[str, Sequence[str]]] = None,
-        input: Optional[Union[bytes, str, IO[Any]]] = None,
-        env: Optional[Mapping[str, str]] = None,
+        args: str | Sequence[str] | None = None,
+        input: bytes | str | IO[Any] | None = None,
+        env: Mapping[str, str] | None = None,
         catch_exceptions: bool = True,
         color: bool = False,
         **extra: Any,

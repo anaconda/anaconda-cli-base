@@ -89,13 +89,14 @@ class TestNoOpWhenDisabled:
         log_event("body", event_name="name", plugin_name="test")
 
     def test_traced_yields_noop_span(self) -> None:
-        from anaconda_cli_base.telemetry import traced, _NoOpSpan
+        from anaconda_cli_base.telemetry import _NoOpSpan, traced
 
         with traced("operation", plugin_name="test") as span:
             assert isinstance(span, _NoOpSpan)
 
     def test_get_otel_handler_returns_null_handler(self) -> None:
         import logging
+
         from anaconda_cli_base.telemetry import get_otel_handler
 
         handler = get_otel_handler()
@@ -134,8 +135,8 @@ class TestCustomAttrs:
     ) -> None:
         import anaconda_cli_base.telemetry as mod
         from anaconda_cli_base.telemetry import (
-            add_command_attributes,
             _command_attributes,
+            add_command_attributes,
         )
 
         monkeypatch.setattr(mod, "_initialized", True)
@@ -149,9 +150,9 @@ class TestCustomAttrs:
     ) -> None:
         import anaconda_cli_base.telemetry as mod
         from anaconda_cli_base.telemetry import (
-            add_command_attributes,
-            _before_command,
             _after_command,
+            _before_command,
+            add_command_attributes,
         )
 
         monkeypatch.setattr(mod, "_initialized", True)
@@ -174,8 +175,8 @@ class TestCustomAttrs:
     ) -> None:
         import anaconda_cli_base.telemetry as mod
         from anaconda_cli_base.telemetry import (
-            add_command_attributes,
             _command_attributes,
+            add_command_attributes,
         )
 
         monkeypatch.setattr(mod, "_initialized", True)
@@ -286,7 +287,7 @@ class TestDetection:
 
 class TestHttpSuppression:
     def test_suppress_http_spans(self) -> None:
-        from anaconda_cli_base.telemetry import suppress_http_spans, is_http_suppressed
+        from anaconda_cli_base.telemetry import is_http_suppressed, suppress_http_spans
 
         assert is_http_suppressed() is False
         with suppress_http_spans():
@@ -294,7 +295,7 @@ class TestHttpSuppression:
         assert is_http_suppressed() is False
 
     def test_suppress_http_spans_nests(self) -> None:
-        from anaconda_cli_base.telemetry import suppress_http_spans, is_http_suppressed
+        from anaconda_cli_base.telemetry import is_http_suppressed, suppress_http_spans
 
         with suppress_http_spans():
             with suppress_http_spans():

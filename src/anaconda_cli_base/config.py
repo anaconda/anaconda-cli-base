@@ -1,28 +1,25 @@
+from __future__ import annotations
+
 import os
 import re
 import sys
 import tempfile
 from collections import deque
-
 from copy import deepcopy
 from functools import cached_property, reduce
 from pathlib import Path
 from shutil import copy
-from tomlkit.toml_document import TOMLDocument
-from typing import Any
-from typing import ClassVar
-from typing import Dict
-from typing import Optional
-from typing import Tuple
-from typing import Type
-from typing import Union
+from typing import Any, ClassVar, Dict, Tuple
 
 import tomlkit
 from pydantic import ValidationError
-from pydantic_settings import BaseSettings
-from pydantic_settings import PydanticBaseSettingsSource
-from pydantic_settings import PyprojectTomlConfigSettingsSource
-from pydantic_settings import SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    PyprojectTomlConfigSettingsSource,
+    SettingsConfigDict,
+)
+from tomlkit.toml_document import TOMLDocument
 
 from anaconda_cli_base.exceptions import (
     AnacondaConfigTomlSyntaxError,
@@ -35,7 +32,7 @@ else:
     import tomli as tomllib
 
 
-def anaconda_secrets_dir() -> Optional[Path]:
+def anaconda_secrets_dir() -> Path | None:
     path = Path(
         os.path.expandvars(
             os.path.expanduser(os.getenv("ANACONDA_SECRETS_DIR", "/run/secrets"))
@@ -55,9 +52,9 @@ def anaconda_config_path() -> Path:
 
 
 class AnacondaConfigTomlSettingsSource(PyprojectTomlConfigSettingsSource):
-    _cache: ClassVar[Dict[Path, Dict[str, Any]]] = {}
+    _cache: ClassVar[dict[Path, dict[str, Any]]] = {}
 
-    def _read_file(self, file_path: Path) -> Dict[str, Any]:
+    def _read_file(self, file_path: Path) -> dict[str, Any]:
         try:
             result = self._cache.get(file_path)
             if result is None:
@@ -72,12 +69,12 @@ class AnacondaConfigTomlSettingsSource(PyprojectTomlConfigSettingsSource):
 class AnacondaBaseSettings(BaseSettings):
     def __init_subclass__(
         cls,
-        plugin_name: Optional[Union[str, tuple]] = None,
-        table_name: Optional[str] = None,
+        plugin_name: str | tuple | None = None,
+        table_name: str | None = None,
         **kwargs: Any,
     ) -> None:
         base_env_prefix: str = "ANACONDA_"
-        pyproject_toml_table_header: Tuple[str, ...]
+        pyproject_toml_table_header: tuple[str, ...]
 
         if plugin_name is not None and table_name is not None:
             raise ValueError(
@@ -159,12 +156,12 @@ class AnacondaBaseSettings(BaseSettings):
     @classmethod
     def settings_customise_sources(
         cls,
-        settings_cls: Type[BaseSettings],
+        settings_cls: type[BaseSettings],
         init_settings: PydanticBaseSettingsSource,
         env_settings: PydanticBaseSettingsSource,
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
-    ) -> Tuple[PydanticBaseSettingsSource, ...]:
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
         return (
             init_settings,
             env_settings,
@@ -223,13 +220,15 @@ class AnacondaBaseSettings(BaseSettings):
         # save a timestamped backup of the config.toml
         config_toml = anaconda_config_path()
         if config_toml.exists():
-            from datetime import datetime
+            from datetime import datetime, timezone
 
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            timestamp = (
+                datetime.now(timezone.utc).astimezone().strftime("%Y%m%d_%H%M%S_%f")
+            )
             backup_path = config_toml.with_name(f"config.backup.{timestamp}.toml")
             try:
                 copy(config_toml, backup_path)
-            except (OSError, IOError) as e:
+            except OSError as e:
                 raise OSError(
                     f"Failed to create backup of {config_toml} at {backup_path}: {e}"
                 ) from e
@@ -244,14 +243,14 @@ class AnacondaBaseSettings(BaseSettings):
                 # Keep the 5 most recent backups, delete the rest
                 for old_backup in backups[5:]:
                     old_backup.unlink()
-            except (OSError, IOError):
+            except OSError:
                 # If cleanup fails, continue anyway - backup was already created
                 pass
 
             try:
                 with open(config_toml, "rt") as f:
                     config = tomlkit.load(f)
-            except (OSError, IOError) as e:
+            except OSError as e:
                 raise OSError(f"Failed to read {config_toml}: {e}") from e
             except Exception as e:
                 raise ValueError(
@@ -261,7 +260,7 @@ class AnacondaBaseSettings(BaseSettings):
         else:
             try:
                 config_toml.parent.mkdir(parents=True, exist_ok=True)
-            except (OSError, IOError) as e:
+            except OSError as e:
                 raise OSError(
                     f"Failed to create directory {config_toml.parent}: {e}"
                 ) from e
@@ -269,7 +268,7 @@ class AnacondaBaseSettings(BaseSettings):
 
         to_update = deepcopy(config)
 
-        table_header = self.model_config.get("pyproject_toml_table_header", tuple())
+        table_header = self.model_config.get("pyproject_toml_table_header", ())
 
         if table_header:
 
@@ -284,8 +283,8 @@ class AnacondaBaseSettings(BaseSettings):
 
         def deepmerge(
             orig: tomlkit.TOMLDocument,
-            new: Dict[str, Any],
-            full_model: Dict[str, Any],
+            new: dict[str, Any],
+            full_model: dict[str, Any],
             preserve_existing_keys: bool = True,
         ) -> None:
             stack = deque[Tuple[TOMLDocument, Dict[str, Any], Dict[str, Any]]](
@@ -326,9 +325,11 @@ class AnacondaBaseSettings(BaseSettings):
         )
 
         if dry_run:
-            import difflib
             import datetime as dt
+            import difflib
+
             from rich.syntax import Syntax
+
             from anaconda_cli_base.console import console
 
             original = config.as_string()
@@ -337,13 +338,17 @@ class AnacondaBaseSettings(BaseSettings):
             dt_format = "%m-%d-%y %H:%M"
             config_toml = anaconda_config_path()
             if config_toml.exists():
-                modified = dt.datetime.fromtimestamp(
-                    config_toml.stat().st_mtime
-                ).strftime(dt_format)
+                modified = (
+                    dt.datetime.fromtimestamp(
+                        config_toml.stat().st_mtime, dt.timezone.utc
+                    )
+                    .astimezone()
+                    .strftime(dt_format)
+                )
             else:
                 modified = ""
 
-            now = dt.datetime.now().strftime(dt_format)
+            now = dt.datetime.now(dt.timezone.utc).astimezone().strftime(dt_format)
 
             diffs = difflib.unified_diff(
                 original.splitlines(False),

@@ -1,43 +1,36 @@
+from __future__ import annotations
+
 import functools
 import os
 import sys
-from dataclasses import dataclass
-from dataclasses import field
-from typing import Any
-from typing import Callable
-from typing import Dict
-from typing import Optional
-from typing import Union
-from typing import Sequence
-from typing import List
-from typing import cast
+from dataclasses import dataclass, field
+from typing import Any, Callable, Sequence, cast
 
-import typer
 import click.core
 import click.utils
+import typer
 from rich.table import Table
 from typer.core import TyperGroup
 
-from anaconda_cli_base import __version__
-from anaconda_cli_base import console
-from anaconda_cli_base.plugins import load_registered_subcommands
+from anaconda_cli_base import __version__, console
 from anaconda_cli_base.exceptions import ERROR_HANDLERS
-from anaconda_cli_base.telemetry import _before_command, _after_command
+from anaconda_cli_base.plugins import load_registered_subcommands
+from anaconda_cli_base.telemetry import _after_command, _before_command
 
 
 class ErrorHandledGroup(TyperGroup):
     # Set True during recursive retry (exit_code == -1) to avoid double-counting telemetry
     _retrying: bool = False
 
-    def list_commands(self, _: click.core.Context) -> List[str]:
+    def list_commands(self, _: click.core.Context) -> list[str]:
         """Return list of commands in the order they appear on the CLI."""
         return sorted(self.commands, reverse=False)
 
     def main(  # type: ignore
         self,
-        args: Optional[Sequence[str]] = None,
-        prog_name: Optional[str] = None,
-        complete_var: Optional[str] = None,
+        args: Sequence[str] | None = None,
+        prog_name: str | None = None,
+        complete_var: str | None = None,
         standalone_mode: bool = True,
         windows_expand_args: bool = True,
         **extra: Any,
@@ -71,7 +64,7 @@ class ErrorHandledGroup(TyperGroup):
             if ctx.params.get("verbose", False):
                 if not self._retrying:
                     _after_command(command_info, success=False, error=e)
-                raise e
+                raise
 
             callback = ERROR_HANDLERS[type(e)]
             exit_code = callback(e)
@@ -112,8 +105,8 @@ class ErrorHandledGroup(TyperGroup):
 
     def _get_context(
         self,
-        args: Optional[Sequence[str]] = None,
-        prog_name: Optional[str] = None,
+        args: Sequence[str] | None = None,
+        prog_name: str | None = None,
         windows_expand_args: bool = True,
         **extra: Any,
     ) -> click.core.Context:
@@ -165,62 +158,62 @@ class ContextExtras:
 
     """
 
-    params: Dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
 
 
 @app.callback(invoke_without_command=True, no_args_is_help=True)
 def main(
     ctx: typer.Context,
-    at: Optional[str] = typer.Option(
+    at: str | None = typer.Option(
         default=None,
         hidden=False,
         help="Select the configured site to use by name or domain name",
     ),
-    token: Optional[str] = typer.Option(
+    token: str | None = typer.Option(
         None,
         "-t",
         "--token",
         help="Authentication token to use. A token string or path to a file containing a token",
         hidden=True,
     ),
-    site: Optional[str] = typer.Option(
+    site: str | None = typer.Option(
         None,
         "-s",
         "--site",
         help="select the anaconda-client site to use",
         hidden=True,
     ),
-    disable_ssl_warnings: Optional[bool] = typer.Option(
+    disable_ssl_warnings: bool | None = typer.Option(
         False,
         help="Disable SSL warnings",
         hidden=True,
     ),
-    show_traceback: Optional[bool] = typer.Option(
+    show_traceback: bool | None = typer.Option(
         False,
         help="Show the full traceback for chalmers user errors",
         hidden=True,
     ),
-    verbose: Optional[bool] = typer.Option(
+    verbose: bool | None = typer.Option(
         False,
         "-v",
         "--verbose",
         help="Print debug information to the console.",
         hidden=False,
     ),
-    quiet: Optional[bool] = typer.Option(
+    quiet: bool | None = typer.Option(
         False,
         "-q",
         "--quiet",
         help="Only show warnings or errors on the console",
         hidden=True,
     ),
-    version: Optional[bool] = typer.Option(
+    version: bool | None = typer.Option(
         None,
         "-V",
         "--version",
         help="Show the version of this package and installed plugins and exit.",
     ),
-    show_help: Optional[bool] = typer.Option(
+    show_help: bool | None = typer.Option(
         False,
         "-h",
         "--help",
@@ -268,7 +261,7 @@ if not disable_plugins:
     load_registered_subcommands(app)
 
 
-def _select_main_entrypoint_app(app_: typer.Typer) -> Union[typer.Typer, Callable]:
+def _select_main_entrypoint_app(app_: typer.Typer) -> typer.Typer | Callable:
     """Select the main application to handle the `anaconda` entrypoint at the command line.
 
     This function, and its execution below at the bottom of this module, can be removed once
