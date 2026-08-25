@@ -22,9 +22,9 @@ from anaconda_cli_base import __version__
 if TYPE_CHECKING:
     from argparse import ArgumentParser, Namespace
     from typing import Any, Callable, TypeVar
-    from typing_extensions import ParamSpec, Self
 
     from packaging.version import Version
+    from typing_extensions import ParamSpec, Self
 
     T = TypeVar("T")
     P = ParamSpec("P")

@@ -2,25 +2,16 @@ import logging
 import os
 import sys
 import warnings
-from importlib.metadata import EntryPoint, Distribution
-from importlib.metadata import entry_points
+from importlib.metadata import Distribution, EntryPoint, entry_points
 from sys import version_info
-from typing import Any
-from typing import Callable
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import cast
-from typing import Set
-from typing import Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union, cast
 
 import typer
 from rich.table import Table
 from typer.models import DefaultPlaceholder
 
-from anaconda_cli_base.console import console, select_from_list
 from anaconda_cli_base import __version__
+from anaconda_cli_base.console import console, select_from_list
 
 log = logging.getLogger(__name__)
 

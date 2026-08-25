@@ -4,13 +4,19 @@ import os
 import re
 import subprocess
 import sys
-from importlib.metadata import Distribution
 from functools import partial
-from typing import Annotated
-from typing import Tuple
-from typing import Type
-from typing import cast
-from typing import Optional, Sequence, Callable, Generator, Union
+from importlib.metadata import Distribution
+from typing import (
+    Annotated,
+    Callable,
+    Generator,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 from unittest.mock import MagicMock
 
 import pytest
@@ -21,13 +27,12 @@ from pytest_mock import MockerFixture
 from readchar import key
 
 import anaconda_cli_base.cli
-from anaconda_cli_base import __version__
-from anaconda_cli_base import console
+from anaconda_cli_base import __version__, console
 from anaconda_cli_base.cli import _select_main_entrypoint_app
 from anaconda_cli_base.exceptions import register_error_handler
 from anaconda_cli_base.plugins import (
-    load_registered_subcommands,
     _select_auth_handler_and_args,
+    load_registered_subcommands,
 )
 
 from .conftest import CLIInvoker

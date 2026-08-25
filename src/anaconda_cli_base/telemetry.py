@@ -18,9 +18,9 @@ from functools import lru_cache
 from typing import Any, Dict, Optional, Union
 
 from anaconda_cli_base.telemetry_config import (
-    TelemetryConfig,
     AUTHENTICATED_ENDPOINT,
     PUBLIC_ENDPOINT,
+    TelemetryConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,6 +41,7 @@ _command_attributes: ContextVar[Optional[Dict[str, AttributeValue]]] = ContextVa
 @lru_cache(maxsize=1)
 def _get_plugin_versions() -> Dict[str, str]:
     from importlib.metadata import entry_points
+
     from anaconda_cli_base import __version__
 
     versions = {"anaconda-cli-base": __version__}
@@ -129,11 +130,11 @@ def _ensure_initialized() -> None:
         try:
             os.environ.setdefault("GRPC_VERBOSITY", "NONE")
 
-            from anaconda_opentelemetry.config import Configuration
-            from anaconda_opentelemetry.attributes import ResourceAttributes
-            from anaconda_opentelemetry.signals import initialize_telemetry
-
             import re
+
+            from anaconda_opentelemetry.attributes import ResourceAttributes
+            from anaconda_opentelemetry.config import Configuration
+            from anaconda_opentelemetry.signals import initialize_telemetry
 
             from anaconda_cli_base import __version__
 

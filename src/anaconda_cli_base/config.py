@@ -3,26 +3,21 @@ import re
 import sys
 import tempfile
 from collections import deque
-
 from copy import deepcopy
 from functools import cached_property, reduce
 from pathlib import Path
 from shutil import copy
-from tomlkit.toml_document import TOMLDocument
-from typing import Any
-from typing import ClassVar
-from typing import Dict
-from typing import Optional
-from typing import Tuple
-from typing import Type
-from typing import Union
+from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union
 
 import tomlkit
 from pydantic import ValidationError
-from pydantic_settings import BaseSettings
-from pydantic_settings import PydanticBaseSettingsSource
-from pydantic_settings import PyprojectTomlConfigSettingsSource
-from pydantic_settings import SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    PyprojectTomlConfigSettingsSource,
+    SettingsConfigDict,
+)
+from tomlkit.toml_document import TOMLDocument
 
 from anaconda_cli_base.exceptions import (
     AnacondaConfigTomlSyntaxError,
@@ -229,7 +224,7 @@ class AnacondaBaseSettings(BaseSettings):
             backup_path = config_toml.with_name(f"config.backup.{timestamp}.toml")
             try:
                 copy(config_toml, backup_path)
-            except (OSError, IOError) as e:
+            except OSError as e:
                 raise OSError(
                     f"Failed to create backup of {config_toml} at {backup_path}: {e}"
                 ) from e
@@ -244,14 +239,14 @@ class AnacondaBaseSettings(BaseSettings):
                 # Keep the 5 most recent backups, delete the rest
                 for old_backup in backups[5:]:
                     old_backup.unlink()
-            except (OSError, IOError):
+            except OSError:
                 # If cleanup fails, continue anyway - backup was already created
                 pass
 
             try:
                 with open(config_toml, "rt") as f:
                     config = tomlkit.load(f)
-            except (OSError, IOError) as e:
+            except OSError as e:
                 raise OSError(f"Failed to read {config_toml}: {e}") from e
             except Exception as e:
                 raise ValueError(
@@ -261,7 +256,7 @@ class AnacondaBaseSettings(BaseSettings):
         else:
             try:
                 config_toml.parent.mkdir(parents=True, exist_ok=True)
-            except (OSError, IOError) as e:
+            except OSError as e:
                 raise OSError(
                     f"Failed to create directory {config_toml.parent}: {e}"
                 ) from e
@@ -326,9 +321,11 @@ class AnacondaBaseSettings(BaseSettings):
         )
 
         if dry_run:
-            import difflib
             import datetime as dt
+            import difflib
+
             from rich.syntax import Syntax
+
             from anaconda_cli_base.console import console
 
             original = config.as_string()

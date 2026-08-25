@@ -2,22 +2,23 @@ import os
 from importlib.metadata import Distribution
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional, Tuple, cast, Dict, Iterator, Union
+from typing import Dict, Iterator, Optional, Tuple, Union, cast
 
 import pytest
 import typer
-from pydantic import Field
-from pydantic import BaseModel
-from pydantic import RootModel
-from pydantic import ValidationError
+from pydantic import BaseModel, Field, RootModel, ValidationError
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
 
 import anaconda_cli_base.cli
-from anaconda_cli_base.config import AnacondaBaseSettings
-from anaconda_cli_base.config import AnacondaConfigTomlSettingsSource
-from anaconda_cli_base.exceptions import AnacondaConfigTomlSyntaxError
-from anaconda_cli_base.exceptions import AnacondaConfigValidationError
+from anaconda_cli_base.config import (
+    AnacondaBaseSettings,
+    AnacondaConfigTomlSettingsSource,
+)
+from anaconda_cli_base.exceptions import (
+    AnacondaConfigTomlSyntaxError,
+    AnacondaConfigValidationError,
+)
 from anaconda_cli_base.plugins import load_registered_subcommands
 
 from .conftest import CLIInvoker

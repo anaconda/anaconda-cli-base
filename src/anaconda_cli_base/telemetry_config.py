@@ -1,7 +1,7 @@
 import os
-from typing import Optional, Any
+from typing import Any, Optional
 
-from pydantic import field_validator, Field
+from pydantic import Field, field_validator
 
 from anaconda_cli_base.config import AnacondaBaseSettings
 

@@ -11,7 +11,7 @@ https://www.sphinx-doc.org/en/master/usage/configuration.html#project-informatio
 """
 
 project = html_title = "Anaconda CLI Base"
-copyright = "2025 Anaconda, Inc"  # noqa: A001
+copyright = "2025 Anaconda, Inc"
 author = "Anaconda, Inc"
 
 # -- General configuration ---------------------------------------------------

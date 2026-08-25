@@ -5,24 +5,26 @@ import sys
 from importlib import reload
 from pathlib import Path
 from types import ModuleType
-from typing import IO
-from typing import Any
-from typing import Callable
-from typing import Mapping
-from typing import Optional
-from typing import Protocol
-from typing import Sequence
-from typing import Union
-from typing import Generator
+from typing import (
+    IO,
+    Any,
+    Callable,
+    Generator,
+    Mapping,
+    Optional,
+    Protocol,
+    Sequence,
+    Union,
+)
 
 import pytest
 import readchar
 import typer
-from typer import rich_utils
+from click.testing import Result
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
+from typer import rich_utils
 from typer.testing import CliRunner
-from click.testing import Result
 
 # Force usage of new CLI
 os.environ["ANACONDA_CLI_FORCE_NEW"] = "true"

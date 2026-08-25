@@ -1,28 +1,19 @@
 import functools
 import os
 import sys
-from dataclasses import dataclass
-from dataclasses import field
-from typing import Any
-from typing import Callable
-from typing import Dict
-from typing import Optional
-from typing import Union
-from typing import Sequence
-from typing import List
-from typing import cast
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union, cast
 
-import typer
 import click.core
 import click.utils
+import typer
 from rich.table import Table
 from typer.core import TyperGroup
 
-from anaconda_cli_base import __version__
-from anaconda_cli_base import console
-from anaconda_cli_base.plugins import load_registered_subcommands
+from anaconda_cli_base import __version__, console
 from anaconda_cli_base.exceptions import ERROR_HANDLERS
-from anaconda_cli_base.telemetry import _before_command, _after_command
+from anaconda_cli_base.plugins import load_registered_subcommands
+from anaconda_cli_base.telemetry import _after_command, _before_command
 
 
 class ErrorHandledGroup(TyperGroup):
