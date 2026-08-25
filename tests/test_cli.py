@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import importlib
 import itertools
 import os
@@ -10,10 +12,8 @@ from typing import (
     Annotated,
     Callable,
     Generator,
-    Optional,
     Sequence,
     Tuple,
-    Type,
     Union,
     cast,
 )
@@ -74,7 +74,7 @@ def plugin_version_in_table(name: str, version: str, stdout: str) -> bool:
 )
 def test_cli_help(
     invoke_cli: CLIInvoker,
-    args: Tuple[str],
+    args: tuple[str],
     expected_exit_code: int,
     expected_text: str,
 ) -> None:
@@ -105,7 +105,7 @@ def test_cli_version(invoke_cli: CLIInvoker) -> None:
         pytest.param(("--quiet",), id="--quiet"),
     ],
 )
-def test_cli_root_options_passthrough(invoke_cli: CLIInvoker, args: Tuple[str]) -> None:
+def test_cli_root_options_passthrough(invoke_cli: CLIInvoker, args: tuple[str]) -> None:
     """Here, we make sure that the root options from anaconda-client are allowed to be passed in.
 
     These will get forwarded through to anaconda-client, but if not defined in typer app could
@@ -267,9 +267,9 @@ def org_plugin(mocker: MockerFixture) -> ENTRY_POINT_TUPLE:
     @plugin.command("login")
     def login(
         force: bool = typer.Option(False, "--force"),
-        hostname: Optional[str] = typer.Option(None),
-        username: Optional[str] = typer.Option(None),
-        password: Optional[str] = typer.Option(None),
+        hostname: str | None = typer.Option(None),
+        username: str | None = typer.Option(None),
+        password: str | None = typer.Option(None),
     ) -> None:
         console.print("org: You're in")
 
@@ -290,7 +290,7 @@ def org_plugin(mocker: MockerFixture) -> ENTRY_POINT_TUPLE:
 @pytest.fixture
 def legacy_main(mocker: MockerFixture) -> Generator[Callable, None, None]:
     def main(
-        args: Optional[Sequence[str]] = None,
+        args: Sequence[str] | None = None,
         *,
         exit_: bool = True,
         allow_plugin_main: bool = True,
@@ -604,7 +604,7 @@ def error_plugin(mocker: MockerFixture) -> ENTRY_POINT_TUPLE:
         pass
 
     @register_error_handler(MyException)
-    def handle_exception(e: Type[Exception]) -> int:
+    def handle_exception(e: type[Exception]) -> int:
         print(f"Custom error handler: {e.__class__.__name__}")
         return 42
 
@@ -612,16 +612,16 @@ def error_plugin(mocker: MockerFixture) -> ENTRY_POINT_TUPLE:
         pass
 
     @register_error_handler(AnotherException)
-    def handle_and_continue(e: Type[Exception]) -> int:
+    def handle_and_continue(e: type[Exception]) -> int:
         print(f"I've corrected the problem: {e.__class__.__name__}")
         return -1
 
     @plugin.command("auto-catch")
-    def auth_catch(opt: Annotated[Optional[bool], typer.Option()] = None) -> None:
+    def auth_catch(opt: Annotated[bool | None, typer.Option()] = None) -> None:
         _ = 1 / 0
 
     @plugin.command("custom-catch")
-    def custom_catch(arg: Annotated[Optional[str], typer.Argument()] = None) -> None:
+    def custom_catch(arg: Annotated[str | None, typer.Argument()] = None) -> None:
         raise MyException("something bad happened")
 
     class Counter:
@@ -914,6 +914,7 @@ def test_python_m_invocation() -> None:
         capture_output=True,
         text=True,
         timeout=10,
+        check=False,
     )
     assert result.returncode == 0
     assert "Welcome to the Anaconda CLI!" in result.stdout
@@ -926,5 +927,6 @@ def test_python_m_bad_command() -> None:
         capture_output=True,
         text=True,
         timeout=10,
+        check=False,
     )
     assert result.returncode != 0

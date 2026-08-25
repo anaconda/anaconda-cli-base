@@ -11,10 +11,8 @@ from typing import (
     Callable,
     Generator,
     Mapping,
-    Optional,
     Protocol,
     Sequence,
-    Union,
 )
 
 import pytest
@@ -38,9 +36,9 @@ class CLIInvoker(Protocol):
     def __call__(
         self,
         # app: typer.Typer,
-        args: Optional[Union[str, Sequence[str]]] = None,
-        input: Optional[Union[bytes, str, IO[Any]]] = None,
-        env: Optional[Mapping[str, str]] = None,
+        args: str | Sequence[str] | None = None,
+        input: bytes | str | IO[Any] | None = None,
+        env: Mapping[str, str] | None = None,
         catch_exceptions: bool = True,
         color: bool = False,
         **extra: Any,
@@ -91,9 +89,9 @@ def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
 
     # Construct a wrapper function so that we can also patch sys.argv when invoking the CLI
     def f(
-        args: Optional[Union[str, Sequence[str]]] = None,
-        input: Optional[Union[bytes, str, IO[Any]]] = None,
-        env: Optional[Mapping[str, str]] = None,
+        args: str | Sequence[str] | None = None,
+        input: bytes | str | IO[Any] | None = None,
+        env: Mapping[str, str] | None = None,
         catch_exceptions: bool = True,
         color: bool = False,
         **extra: Any,

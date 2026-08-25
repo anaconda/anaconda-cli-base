@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import logging
 import os
-from typing import List, Sequence, Tuple, Union
+from typing import Sequence
 
 from readchar import key, readkey
 from rich.console import Console
@@ -33,7 +35,7 @@ def init_logging() -> None:
         )
 
 
-def _generate_table(header: str, rows: List[str], selected: int) -> Table:
+def _generate_table(header: str, rows: list[str], selected: int) -> Table:
     table = Table(box=None)
 
     table.add_column(header)
@@ -50,16 +52,14 @@ def _generate_table(header: str, rows: List[str], selected: int) -> Table:
     return table
 
 
-def select_from_list(
-    prompt: str, choices: Sequence[Union[str, Tuple[str, str]]]
-) -> str:
+def select_from_list(prompt: str, choices: Sequence[str | tuple[str, str]]) -> str:
     """Dynamically select from a list of choices, by using the up/down keys."""
     # inspired by https://github.com/Textualize/rich/discussions/1785#discussioncomment-1883808
 
     # Construct two lists, one of values, one for display
     # Display names are shown to the user, but values is indexed to return the value.
-    display_names: List[str] = []
-    values: List[str] = []
+    display_names: list[str] = []
+    values: list[str] = []
     for choice in choices:
         if isinstance(choice, tuple):
             value, display_name = choice

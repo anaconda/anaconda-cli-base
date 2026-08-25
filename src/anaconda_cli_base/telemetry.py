@@ -5,6 +5,8 @@ When telemetry is disabled, every function is a no-op. Imports of the OTel SDK
 are deferred until the backend initializes.
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import sys
@@ -15,7 +17,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Any, Dict, Optional, Union
+from typing import Any, Union
 
 from anaconda_cli_base.telemetry_config import (
     AUTHENTICATED_ENDPOINT,
@@ -33,13 +35,13 @@ _lock = threading.Lock()
 _initialized = False
 
 _suppress_http: ContextVar[bool] = ContextVar("_suppress_http", default=False)
-_command_attributes: ContextVar[Optional[Dict[str, AttributeValue]]] = ContextVar(
+_command_attributes: ContextVar[dict[str, AttributeValue] | None] = ContextVar(
     "_command_attributes", default=None
 )
 
 
 @lru_cache(maxsize=1)
-def _get_plugin_versions() -> Dict[str, str]:
+def _get_plugin_versions() -> dict[str, str]:
     from importlib.metadata import entry_points
 
     from anaconda_cli_base import __version__
@@ -190,23 +192,23 @@ def _ensure_initialized() -> None:
             _initialized = True
         except ImportError:
             pass
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.debug("Telemetry initialization failed: %s", exc)
 
 
-def _get_api_key() -> Optional[str]:
+def _get_api_key() -> str | None:
     try:
         from anaconda_auth.token import TokenInfo
 
         token_info = TokenInfo.load("anaconda.com")
         return token_info.api_key
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
 
 
 def _before_command(
-    args: Optional[Sequence[str]], prog_name: Optional[str]
-) -> Optional[_CommandInfo]:
+    args: Sequence[str] | None, prog_name: str | None
+) -> _CommandInfo | None:
     """Start tracking a command. Returns None when telemetry is inactive."""
     _ensure_initialized()
     if not _initialized:
@@ -218,9 +220,9 @@ def _before_command(
 
 
 def _after_command(
-    info: Optional[_CommandInfo],
+    info: _CommandInfo | None,
     success: bool,
-    error: Optional[Exception] = None,
+    error: Exception | None = None,
     exit_code: int = 0,
 ) -> None:
     if info is None:
@@ -229,7 +231,7 @@ def _after_command(
         from anaconda_opentelemetry import increment_counter, record_histogram
 
         duration_ms = (time.perf_counter() - info.start_time) * 1000
-        attrs: Dict[str, AttributeValue] = {
+        attrs: dict[str, AttributeValue] = {
             "command": info.command,
             "plugin": info.plugin,
             "source": "anaconda-cli-base",
@@ -248,14 +250,14 @@ def _after_command(
         record_histogram("cli_command_duration_ms", duration_ms, attrs)
         increment_counter("cli_command_invoked", attributes=attrs)
         if not success:
-            error_attrs: Dict[str, AttributeValue] = {
+            error_attrs: dict[str, AttributeValue] = {
                 **attrs,
                 "error.type": type(error).__name__ if error else "unknown",
                 "error.code": str(getattr(error, "code", getattr(error, "errno", ""))),
                 "error.message": str(error)[:500] if error else "",
             }
             increment_counter("cli_command_errors", attributes=error_attrs)
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         pass
     finally:
         _command_attributes.set({})
@@ -317,13 +319,13 @@ def get_otel_handler(level: int = logging.WARNING) -> logging.Handler:
             return logging.NullHandler()
         handler.setLevel(level)
         return handler
-    except Exception:
+    except Exception:  # noqa: BLE001
         return logging.NullHandler()
 
 
 @contextmanager
 def traced(
-    name: str, plugin_name: str, attributes: Optional[Dict[str, Any]] = None
+    name: str, plugin_name: str, attributes: dict[str, Any] | None = None
 ) -> Generator[Any, None, None]:
     """Create a child span for tracing a block of work.
 
@@ -340,7 +342,7 @@ def traced(
 
         with get_trace(name, attributes=_build_attrs(attributes, plugin_name)) as span:
             yield span
-    except Exception:
+    except Exception:  # noqa: BLE001
         yield _NoOpSpan()
 
 
@@ -348,7 +350,7 @@ def count(
     name: str,
     plugin_name: str,
     value: int = 1,
-    attributes: Optional[Dict[str, Any]] = None,
+    attributes: dict[str, Any] | None = None,
 ) -> None:
     """Increment a counter metric. Use for discrete occurrences you want to sum.
 
@@ -365,7 +367,7 @@ def count(
         increment_counter(
             name, by=value, attributes=_build_attrs(attributes, plugin_name)
         )
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         pass
 
 
@@ -373,7 +375,7 @@ def histogram(
     name: str,
     plugin_name: str,
     value: float,
-    attributes: Optional[Dict[str, Any]] = None,
+    attributes: dict[str, Any] | None = None,
 ) -> None:
     """Record a distribution measurement. Use for values you want percentiles of.
 
@@ -388,7 +390,7 @@ def histogram(
         from anaconda_opentelemetry import record_histogram
 
         record_histogram(name, value, attributes=_build_attrs(attributes, plugin_name))
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         pass
 
 
@@ -396,7 +398,7 @@ def log_event(
     body: str,
     event_name: str,
     plugin_name: str,
-    attributes: Optional[Dict[str, Any]] = None,
+    attributes: dict[str, Any] | None = None,
 ) -> None:
     """Send a structured log event. No-ops when telemetry is disabled."""
     _ensure_initialized()
@@ -406,7 +408,7 @@ def log_event(
         from anaconda_opentelemetry.signals import send_event
 
         send_event(body, event_name, attributes=_build_attrs(attributes, plugin_name))
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         pass
 
 
@@ -424,7 +426,7 @@ def add_command_attributes(**attributes: Any) -> None:
     """
     if not _initialized:
         return
-    filtered: Dict[str, AttributeValue] = {}
+    filtered: dict[str, AttributeValue] = {}
     for k, v in attributes.items():
         if isinstance(v, (str, bool, int, float)):
             filtered[k] = v
@@ -441,9 +443,7 @@ def add_command_attributes(**attributes: Any) -> None:
     _command_attributes.set({**current, **filtered})
 
 
-def _build_attrs(
-    attributes: Optional[Dict[str, Any]], plugin_name: str
-) -> Dict[str, Any]:
+def _build_attrs(attributes: dict[str, Any] | None, plugin_name: str) -> dict[str, Any]:
     attrs = dict(attributes or {})
     attrs["source"] = "anaconda-cli-base"
     attrs["plugin"] = plugin_name
@@ -471,14 +471,14 @@ def is_http_suppressed() -> bool:
 
 
 class _NoOpSpan:
-    def add_event(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
+    def add_event(self, name: str, attributes: dict[str, Any] | None = None) -> None:
         pass
 
     def add_exception(self, exc: Exception) -> None:
         pass
 
-    def set_error_status(self, msg: Optional[str] = None) -> None:
+    def set_error_status(self, msg: str | None = None) -> None:
         pass
 
-    def add_attributes(self, attributes: Dict[str, Any]) -> None:
+    def add_attributes(self, attributes: dict[str, Any]) -> None:
         pass

@@ -178,7 +178,7 @@ def test_constant(
         module = sys.modules[__name__]
 
         with pytest.warns(warning, match=message):  # type: ignore
-            module.SOME_CONSTANT
+            _ = module.SOME_CONSTANT
 
 
 @parametrize_dev

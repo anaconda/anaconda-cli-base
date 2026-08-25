@@ -10,6 +10,8 @@ https://www.sphinx-doc.org/en/master/usage/configuration.html
 https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 """
 
+from __future__ import annotations
+
 project = html_title = "Anaconda CLI Base"
 copyright = "2025 Anaconda, Inc"
 author = "Anaconda, Inc"

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import signal
 import sys
-from typing import Generator, List
+from typing import Generator
 from unittest.mock import MagicMock
 
 import pytest
@@ -52,7 +52,7 @@ class TestRegisterShutdownHook:
         fake_timer: MagicMock,
         mock_shutdown_telemetry: MagicMock,
     ) -> None:
-        order: List[str] = []
+        order: list[str] = []
         mod.register_shutdown_hook(lambda: order.append("first"))
         mod.register_shutdown_hook(lambda: order.append("second"))
         mod.register_shutdown_hook(lambda: order.append("third"))
@@ -146,7 +146,7 @@ class TestTriggerShutdownTelemetry:
         fake_timer: MagicMock,
         mock_shutdown_telemetry: MagicMock,
     ) -> None:
-        ran: List[str] = []
+        ran: list[str] = []
 
         def boom() -> None:
             raise RuntimeError("boom")
@@ -179,7 +179,7 @@ class TestTriggerShutdownTelemetry:
         fake_timer: MagicMock,
         mock_shutdown_telemetry: MagicMock,
     ) -> None:
-        events: List[str] = []
+        events: list[str] = []
 
         timer_instance = fake_timer.return_value
         timer_instance.start.side_effect = lambda: events.append("timer_started")
