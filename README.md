@@ -383,6 +383,19 @@ def download(model: str):
 The `plugin_name` should match your registered subcommand name (e.g., `"ai"` for `anaconda ai`).
 This ensures custom telemetry correlates with the automatic command metrics in dashboards.
 
+To enrich the automatic command metrics with additional context, use `add_command_attributes()`:
+
+```python
+from anaconda_cli_base.telemetry import add_command_attributes
+
+@app.command()
+def share(channel: str, user: str, role: str):
+    add_command_attributes(role=role, action="share", channel_count=1)
+    # ... execute share operation
+```
+
+These attributes merge into the `cli_command_invoked` and `cli_command_duration_ms` metrics that are automatically collected for every command invocation. If this function takes an attribute key that's already in the attributes, this function's attribute is silently dropped.
+
 All functions are no-ops when telemetry is disabled — they will never raise or affect CLI behavior.
 
 ### Logging handler

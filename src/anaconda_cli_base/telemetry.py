@@ -33,6 +33,9 @@ _lock = threading.Lock()
 _initialized = False
 
 _suppress_http: ContextVar[bool] = ContextVar("_suppress_http", default=False)
+_command_attributes: ContextVar[Optional[Dict[str, AttributeValue]]] = ContextVar(
+    "_command_attributes", default=None
+)
 
 
 @lru_cache(maxsize=1)
@@ -233,6 +236,14 @@ def _after_command(
             "exit_code": exit_code if not success else 0,
         }
 
+        custom_attrs = _command_attributes.get() or {}
+        for k, v in custom_attrs.items():
+            # key insertion that protects base/pre-existing values
+            if k not in attrs:
+                attrs[k] = v
+            else:
+                logger.debug("Skipping custom attribute key that already exists: %s", k)
+
         record_histogram("cli_command_duration_ms", duration_ms, attrs)
         increment_counter("cli_command_invoked", attributes=attrs)
         if not success:
@@ -245,6 +256,8 @@ def _after_command(
             increment_counter("cli_command_errors", attributes=error_attrs)
     except Exception:
         pass
+    finally:
+        _command_attributes.set({})
 
     shutdown_telemetry()
 
@@ -394,6 +407,37 @@ def log_event(
         send_event(body, event_name, attributes=_build_attrs(attributes, plugin_name))
     except Exception:
         pass
+
+
+def add_command_attributes(**attributes: Any) -> None:
+    """Add custom attributes to the current command's telemetry.
+
+    These attributes are merged into the base command metrics when the
+    command completes. Used to add additional attributes to default telemetry
+    without sending an additional telemetry event.
+
+    Safe to call multiple times - attributes are merged (later calls override).
+    Custom attributes will only override previously set custom attributes, not
+    attributes of the base command (set in _after_command). No-op when telemetry
+    is disabled. Invalid attribute values are filtered.
+    """
+    if not _initialized:
+        return
+    filtered: Dict[str, AttributeValue] = {}
+    for k, v in attributes.items():
+        if isinstance(v, (str, bool, int, float)):
+            filtered[k] = v
+        elif isinstance(v, (list, tuple)) and all(
+            isinstance(x, (str, bool, int, float)) for x in v
+        ):
+            filtered[k] = list(v)
+        else:
+            logger.debug(
+                "Skipping invalid attribute %s=%r (type: %s)", k, v, type(v).__name__
+            )
+
+    current = _command_attributes.get() or {}
+    _command_attributes.set({**current, **filtered})
 
 
 def _build_attrs(

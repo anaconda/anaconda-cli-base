@@ -26,12 +26,12 @@ repos:
       - id: pretty-format-toml
         args: [--autofix]
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.2
+    rev: v2.4.3
     hooks:
       - id: codespell
         args: [--write]
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.37.2
+    rev: 0.38.0
     hooks:
       - id: check-github-workflows
       - id: check-renovate
