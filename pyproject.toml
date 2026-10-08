@@ -13,7 +13,7 @@ dependencies = [
   "pydantic >=2.12",
   "tomli",
   "tomlkit",
-  "anaconda-opentelemetry >=1.2.1"
+  "anaconda-opentelemetry >=1.3.0"
 ]
 description = "A base CLI entrypoint supporting Anaconda CLI plugins"
 dynamic = ["version"]
