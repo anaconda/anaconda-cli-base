@@ -243,8 +243,8 @@ def main(
     if version:
         cmd = cast(ErrorHandledGroup, ctx.command)
         versions = cmd.get_command(ctx, "versions")
-        func = cast(Callable, versions)
-        ctx.invoke(func)
+        if versions is not None and versions.callback is not None:
+            ctx.invoke(versions.callback)
 
 
 # There is a duplicate main callback in anaconda-client, which is invoked when the
