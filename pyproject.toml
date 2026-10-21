@@ -117,7 +117,7 @@ target-version = "py38"
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py310,py311,py312,py313,py314,py310-otel,py310-integration,mypy
+envlist = py310,py311,py312,py313,py314,py310-otel,py310-integration,py310-typer-legacy,mypy
 isolated_build = True
 requires =
     tox-conda
@@ -125,7 +125,7 @@ requires =
 
 [gh-actions]
 python =
-    3.10: py310, py310-otel, py310-integration, mypy
+    3.10: py310, py310-otel, py310-integration, py310-typer-legacy, mypy
     3.11: py311, mypy
     3.12: py312, mypy
     3.13: py313, mypy
@@ -169,6 +169,16 @@ conda_deps =
 conda_channels =
     {[testenv]conda_channels}
 commands = pytest -m integration
+
+[testenv:py310-typer-legacy]
+deps =
+    {[testenv]deps}
+    typer <0.26
+conda_deps =
+    {[testenv]conda_deps}
+conda_channels =
+    {[testenv]conda_channels}
+commands = pytest -m "not integration"
 
 [testenv:mypy]
 deps =
