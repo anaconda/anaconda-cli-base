@@ -13,7 +13,6 @@ from typing import List
 from typing import cast
 
 import typer
-import click.core
 import click.utils
 from rich.table import Table
 from typer.core import TyperGroup
@@ -29,7 +28,7 @@ class ErrorHandledGroup(TyperGroup):
     # Set True during recursive retry (exit_code == -1) to avoid double-counting telemetry
     _retrying: bool = False
 
-    def list_commands(self, _: click.core.Context) -> List[str]:
+    def list_commands(self, _: Any) -> List[str]:
         """Return list of commands in the order they appear on the CLI."""
         return sorted(self.commands, reverse=False)
 
@@ -116,8 +115,8 @@ class ErrorHandledGroup(TyperGroup):
         prog_name: Optional[str] = None,
         windows_expand_args: bool = True,
         **extra: Any,
-    ) -> click.core.Context:
-        # This function adapted from typer.TyperGroup._main
+    ) -> Any:
+        # This function adapted from typer's TyperGroup.main
         # We need the context to determine if --verbose was requested
         # from the root command.
         if not args:
