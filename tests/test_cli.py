@@ -97,6 +97,29 @@ def test_cli_version(invoke_cli: CLIInvoker) -> None:
     assert plugin_version_in_table("anaconda-cli-base", __version__, result.stdout)
 
 
+@pytest.mark.parametrize("flag", ["--version", "-V"])
+def test_cli_version_real_entrypoint(
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    flag: str,
+) -> None:
+    """--version must work when the entrypoint calls main(args=None).
+
+    In that path click reads sys.argv directly, so we exercise it without the
+    CliRunner used by invoke_cli.
+    """
+    app = cast(typer.Typer, anaconda_cli_base.cli.app)
+    click_app = typer.main.get_command(app)
+
+    monkeypatch.setattr(sys, "argv", ["anaconda", flag])
+    with pytest.raises(SystemExit) as exc_info:
+        click_app.main(args=None, standalone_mode=True)
+
+    assert exc_info.value.code == 0
+    captured = capsys.readouterr()
+    assert "anaconda-cli-base" in captured.out
+
+
 @pytest.mark.parametrize(
     "args",
     [
