@@ -11,6 +11,7 @@ from typing import Union
 from typing import Sequence
 from typing import List
 from typing import cast
+from typing import TYPE_CHECKING
 
 import typer
 import click.utils
@@ -24,11 +25,18 @@ from anaconda_cli_base.exceptions import ERROR_HANDLERS
 from anaconda_cli_base.telemetry import _before_command, _after_command
 
 
+if TYPE_CHECKING:
+    try:
+        from typer._click.core import Context  # type: ignore[import-not-found]
+    except ImportError:
+        from click.core import Context  # type: ignore[assignment]
+
+
 class ErrorHandledGroup(TyperGroup):
     # Set True during recursive retry (exit_code == -1) to avoid double-counting telemetry
     _retrying: bool = False
 
-    def list_commands(self, _: Any) -> List[str]:
+    def list_commands(self, _: "Context") -> List[str]:
         """Return list of commands in the order they appear on the CLI."""
         return sorted(self.commands, reverse=False)
 
@@ -115,7 +123,7 @@ class ErrorHandledGroup(TyperGroup):
         prog_name: Optional[str] = None,
         windows_expand_args: bool = True,
         **extra: Any,
-    ) -> Any:
+    ) -> "Context":
         # This function adapted from typer's TyperGroup.main
         # We need the context to determine if --verbose was requested
         # from the root command.
