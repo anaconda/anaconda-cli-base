@@ -36,9 +36,22 @@ ENTRY_POINT_TUPLE = Tuple[str, str, typer.Typer, Union[Distribution, None]]
 
 
 installed_click_version = version.parse(importlib.metadata.version("click"))
+installed_typer_version = version.parse(importlib.metadata.version("typer"))
+
+# typer bundles its own copy of click from this version on, so the standalone
+# click version no longer determines the exit code.
+typer_vendored_click_version = version.parse("0.26.0")
 
 # The click version where the exit code changed from 0 to 2 when no_args_is_help is used
 click_version_exit_code_changed = version.parse("8.2.0")
+
+if (
+    installed_typer_version >= typer_vendored_click_version
+    or installed_click_version >= click_version_exit_code_changed
+):
+    no_args_exit_code = 2
+else:
+    no_args_exit_code = 0
 
 
 def plugin_version_in_table(name: str, version: str, stdout: str) -> bool:
@@ -51,7 +64,7 @@ def plugin_version_in_table(name: str, version: str, stdout: str) -> bool:
     [
         pytest.param(
             (),
-            2 if installed_click_version >= click_version_exit_code_changed else 0,
+            no_args_exit_code,
             id="no-args",
         ),
         pytest.param(("--help",), 0, id="--help"),
@@ -82,6 +95,29 @@ def test_cli_version(invoke_cli: CLIInvoker) -> None:
     result = invoke_cli(["--version"])
     assert result.exit_code == 0
     assert plugin_version_in_table("anaconda-cli-base", __version__, result.stdout)
+
+
+@pytest.mark.parametrize("flag", ["--version", "-V"])
+def test_cli_version_real_entrypoint(
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    flag: str,
+) -> None:
+    """--version must work when the entrypoint calls main(args=None).
+
+    In that path click reads sys.argv directly, so we exercise it without the
+    CliRunner used by invoke_cli.
+    """
+    app = cast(typer.Typer, anaconda_cli_base.cli.app)
+    click_app = typer.main.get_command(app)
+
+    monkeypatch.setattr(sys, "argv", ["anaconda", flag])
+    with pytest.raises(SystemExit) as exc_info:
+        click_app.main(args=None, standalone_mode=True)
+
+    assert exc_info.value.code == 0
+    captured = capsys.readouterr()
+    assert "anaconda-cli-base" in captured.out
 
 
 @pytest.mark.parametrize(

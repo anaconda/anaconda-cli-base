@@ -5,7 +5,6 @@ import sys
 from importlib import reload
 from pathlib import Path
 from types import ModuleType
-from typing import IO
 from typing import Any
 from typing import Callable
 from typing import Mapping
@@ -22,7 +21,7 @@ from typer import rich_utils
 from pytest import MonkeyPatch
 from pytest_mock import MockerFixture
 from typer.testing import CliRunner
-from click.testing import Result
+from typer.testing import Result
 
 # Force usage of new CLI
 os.environ["ANACONDA_CLI_FORCE_NEW"] = "true"
@@ -37,7 +36,7 @@ class CLIInvoker(Protocol):
         self,
         # app: typer.Typer,
         args: Optional[Union[str, Sequence[str]]] = None,
-        input: Optional[Union[bytes, str, IO[Any]]] = None,
+        input: Optional[Union[bytes, str]] = None,
         env: Optional[Mapping[str, str]] = None,
         catch_exceptions: bool = True,
         color: bool = False,
@@ -90,7 +89,7 @@ def invoke_cli(tmp_cwd: Path, monkeypatch: MonkeyPatch) -> CLIInvoker:
     # Construct a wrapper function so that we can also patch sys.argv when invoking the CLI
     def f(
         args: Optional[Union[str, Sequence[str]]] = None,
-        input: Optional[Union[bytes, str, IO[Any]]] = None,
+        input: Optional[Union[bytes, str]] = None,
         env: Optional[Mapping[str, str]] = None,
         catch_exceptions: bool = True,
         color: bool = False,
